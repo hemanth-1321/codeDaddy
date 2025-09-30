@@ -1,0 +1,8 @@
+fastapi
+uvicorn
+requests
+python-jose
+pyjwt
+python-dotenv
+"pyjwt[crypto]" 
+cryptography 
