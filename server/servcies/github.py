@@ -39,4 +39,28 @@ def get_repos_services(installation_id: int):
 
 
 
-     
+
+def get_repo_by_id(installation_id: int, owner: str, repo: str):
+    
+    token_url = f"https://api.github.com/app/installations/{installation_id}/access_tokens"
+    headers = get_installations_headers()  # must return JWT headers!
+    token_response = requests.post(token_url, headers=headers)
+
+    if token_response.status_code != 201:
+        raise HTTPException(status_code=token_response.status_code, detail=token_response.text)
+
+    access_token = token_response.json()["token"]
+
+    repo_url = f"https://api.github.com/repos/{owner}/{repo}"
+    repo_res = requests.get(
+        repo_url,
+        headers={
+            "Authorization": f"Bearer {access_token}",
+            "Accept": "application/vnd.github+json",
+        },
+    )
+
+    if repo_res.status_code != 200:
+        raise HTTPException(status_code=repo_res.status_code, detail=repo_res.text)
+
+    return repo_res.json()
