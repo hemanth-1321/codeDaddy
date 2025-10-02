@@ -1,1 +1,2 @@
 # codeDaddy
+updfated readme
