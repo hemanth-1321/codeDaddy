@@ -32,15 +32,3 @@ def get_repo(repo: str, installation_id: int    = Query(...), owner: str = Query
 
 #api/v1/webhook/github
 
-#hemanth
-# test_syntax_error.py
-
-def add_numbers(a, b)
-    return a + b
-
-print(add_numbers(2, 3))
-
-def add_numbers(a, b)
-    return a - b
-
-print(add_numbers(2, 3))
