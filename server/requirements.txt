@@ -7,3 +7,6 @@ cryptography
 sqlalchemy
 asyncpg
 pydantic_settings
+redis
+rq
+tree_sitter==0.20.4
