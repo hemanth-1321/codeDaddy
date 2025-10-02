@@ -7,3 +7,5 @@ cryptography
 sqlalchemy
 asyncpg
 pydantic_settings
+redis
+rq
