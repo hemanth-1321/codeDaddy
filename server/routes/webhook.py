@@ -44,3 +44,9 @@ async def webhook(request:Request):
         print("pr",pr)
         queue.enqueue(process_pr, pr_data)
         return {"status": "queued", "pr": pr_data}
+    
+    
+    
+    
+    
+    #rq worker github_prs 
