@@ -3,19 +3,19 @@ import tempfile
 import shutil
 import json
 from .parser_utils import parse_file, extract_imports_with_tree_sitter, resolve_import_path, LANGUAGE_MAP
+from .write_pr_txt import write_pr_txt
 from .graph_utils import build_graph_from_ast, build_semantic_graph
 from .llm_context import prepare_llm_context
 from .git_utils import clone_and_checkout, get_changed_files
 
 import networkx as nx
 
-
 def process_pr(pr_data, output_dir="results"):
     repo_url = pr_data["clone_url"]
     pr_number = pr_data["pr_number"]
     base_branch = pr_data["base_branch"]
     head_branch = pr_data["head_branch"]
-    repo_name = pr_data.get("repo_name", os.path.basename(repo_url).replace(".git",""))
+    repo_name = pr_data.get("repo_name", os.path.basename(repo_url).replace(".git", ""))
 
     print(f"[Worker] Reviewing PR #{pr_number} from {repo_name}")
 
@@ -23,7 +23,7 @@ def process_pr(pr_data, output_dir="results"):
     os.makedirs(output_dir, exist_ok=True)
 
     try:
-        # Clone repo and checkout branch
+        # Clone repo and checkout
         clone_and_checkout(repo_url, temp_dir, head_branch)
 
         # Get changed files
@@ -39,12 +39,10 @@ def process_pr(pr_data, output_dir="results"):
             if ext not in LANGUAGE_MAP or not os.path.exists(file_path):
                 return
 
-            # Parse file
             tree, source_code = parse_file(file_path, LANGUAGE_MAP[ext])
             if isinstance(source_code, bytes):
                 source_code = source_code.decode("utf-8")
 
-            # Build AST + semantic graph
             ast_graph = build_graph_from_ast(tree)
             sem_graph = build_semantic_graph(tree, source_code, LANGUAGE_MAP[ext], file_name)
             combined_graph.update(ast_graph)
@@ -53,10 +51,9 @@ def process_pr(pr_data, output_dir="results"):
             parsed_files[file_name] = (tree, source_code)
             return tree, source_code
 
-        # Parse all changed files
+        # Parse changed files
         for file in changed_files:
-            abs_path = os.path.join(temp_dir, file)
-            parse_file_if_needed(abs_path, file)
+            parse_file_if_needed(os.path.join(temp_dir, file), file)
 
         # Resolve imports
         for current_file in list(parsed_files.keys()):
@@ -65,11 +62,10 @@ def process_pr(pr_data, output_dir="results"):
             if not lang:
                 continue
             imports = extract_imports_with_tree_sitter(os.path.join(temp_dir, current_file), lang)
-            for import_str in imports:
-                resolved_path = resolve_import_path(import_str, current_file, temp_dir, lang)
-                if resolved_path:
-                    if resolved_path not in parsed_files:
-                        parse_file_if_needed(os.path.join(temp_dir, resolved_path), resolved_path)
+            for imp in imports:
+                resolved_path = resolve_import_path(imp, current_file, temp_dir, lang)
+                if resolved_path and resolved_path not in parsed_files:
+                    parse_file_if_needed(os.path.join(temp_dir, resolved_path), resolved_path)
                     combined_graph.add_edge(current_file, resolved_path, type="import")
 
         # Prepare LLM context
@@ -83,7 +79,7 @@ def process_pr(pr_data, output_dir="results"):
             LANGUAGE_MAP
         )
 
-        # Add PR and repo details to LLM context
+        # Add PR metadata
         llm_context["pr_metadata"] = {
             "pr_number": pr_number,
             "repo_name": repo_name,
@@ -93,18 +89,22 @@ def process_pr(pr_data, output_dir="results"):
             "total_files_changed": len(changed_files)
         }
 
-        # Write context to file
+        # Write JSON context
         context_json_path = os.path.join(output_dir, f"pr_{pr_number}_context.json")
         with open(context_json_path, "w", encoding="utf-8") as f:
             json.dump(llm_context, f, indent=2)
 
-        print(f"[Worker] LLM context written to: {context_json_path}")
+        # Write TXT context
+        context_txt_path = write_pr_txt(pr_data, parsed_files, changed_files, temp_dir, output_dir)
+
+        print(f"[Worker] LLM context written: JSON -> {context_json_path}, TXT -> {context_txt_path}")
 
         return {
             "pr_number": pr_number,
             "repo": repo_name,
             "changed_files": changed_files,
             "context_json": context_json_path,
+            "context_txt": context_txt_path,
             "llm_context": llm_context
         }
 

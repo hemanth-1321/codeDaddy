@@ -1,6 +1,5 @@
 from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
-from routes.githubRoutes import router as github_router
 from routes.webhook import router as webhook_router
 from servcies.github import get_installations_service, get_repos_services,get_repo_by_id
 
@@ -14,7 +13,6 @@ app.add_middleware(
 )
 
 
-app.include_router(github_router, prefix="/github", tags=["GitHub"])
 app.include_router(webhook_router,prefix="/api/v1/webhook",tags=["webhook"])
 
 @app.get("/installations")
@@ -30,5 +28,4 @@ def get_repo(repo: str, installation_id: int    = Query(...), owner: str = Query
     return get_repo_by_id(installation_id, owner, repo)
 
 
-#api/v1/webhook/github
 

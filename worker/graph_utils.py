@@ -19,37 +19,6 @@ def build_graph_from_ast(tree):
     
     return graph
 
-
-"""
-ast tree for print("hello world")
-module@(0, 0)-(0, 20)
-  expression_statement@(0, 0)-(0, 20)
-    call@(0, 0)-(0, 20)
-      identifier@(0, 0)-(0, 5)
-      argument_list@(0, 5)-(0, 20)
-        (@(0, 5)-(0, 6)
-        string@(0, 6)-(0, 19)
-          string_start@(0, 6)-(0, 7)
-          string_content@(0, 7)-(0, 18)
-          string_end@(0, 18)-(0, 19)
-        )@(0, 19)-(0, 20)
-
---- PDG Edges ---
-('module@(0, 0)-(0, 20)', 'expression_statement@(0, 0)-(0, 20)', 'control')
-('expression_statement@(0, 0)-(0, 20)', 'call@(0, 0)-(0, 20)', 'control')
-('call@(0, 0)-(0, 20)', 'identifier@(0, 0)-(0, 5)', 'control')
-('call@(0, 0)-(0, 20)', 'argument_list@(0, 5)-(0, 20)', 'control')
-('argument_list@(0, 5)-(0, 20)', '(@(0, 5)-(0, 6)', 'control')
-('argument_list@(0, 5)-(0, 20)', 'string@(0, 6)-(0, 19)', 'control')
-('string@(0, 6)-(0, 19)', 'string_start@(0, 6)-(0, 7)', 'control')
-('string@(0, 6)-(0, 19)', 'string_content@(0, 7)-(0, 18)', 'control')
-('string@(0, 6)-(0, 19)', 'string_end@(0, 18)-(0, 19)', 'control')
-('argument_list@(0, 5)-(0, 20)', ')@(0, 19)-(0, 20)', 'control')
-
-"""
-
-
-
 def build_semantic_graph(tree, source_code, lang, file_path):
     """
     Build a semantic code graph from a Tree-sitter AST.

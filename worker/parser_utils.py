@@ -134,17 +134,6 @@ def extract_functions_from_ast(tree, source_code, lang_name):
     walk(tree.root_node)
     return definitions
 
-# --- Context helpers ---
-def extract_docstring_and_key_statements(node, code_lines):
-    docstring = ""
-    key_statements = []
-    for child in node.children:
-        if child.type=="string" and not docstring:
-            docstring = "\n".join(code_lines[child.start_point[0]:child.end_point[0]]).strip('"').strip("'")
-        elif child.type in ("call","return","assignment"):
-            stmt_lines = code_lines[child.start_point[0]:child.end_point[0]]
-            key_statements.append(" ".join(stmt_lines).strip())
-    return docstring, key_statements
 
 # ---------- Extract imports ----------
 def extract_imports_with_tree_sitter(file_path, lang_name):
@@ -244,92 +233,4 @@ def resolve_import_path(import_str, current_file, temp_dir, lang):
             return os.path.relpath(java_path, temp_dir)
     
     return None
-
-
-def ast_to_json_multilang(tree, source_code, lang):
-    """
-    Converts AST for Python, JS/TS, Java, Go, C/C++ to structured JSON.
-    """
-    def node_text(node):
-        return source_code[node.start_byte:node.end_byte].decode("utf-8")
-
-    def walk(node):
-        t = node.type
-        # Python
-        if lang == "python":
-            if t == "function_definition":
-                name_node = node.child_by_field_name("name")
-                params_node = node.child_by_field_name("parameters")
-                body_node = node.child_by_field_name("body")
-                return {
-                    "type": "function",
-                    "name": node_text(name_node) if name_node else "",
-                    "params": [node_text(p) for p in params_node.children if p.type=="identifier"] if params_node else [],
-                    "start_line": node.start_point[0],
-                    "end_line": node.end_point[0],
-                    "body": walk(body_node) if body_node else []
-                }
-        # JS/TS
-        elif lang in ("javascript","typescript"):
-            if t in ("function_declaration","method_definition"):
-                name_node = node.child_by_field_name("name")
-                params_node = node.child_by_field_name("parameters")
-                body_node = node.child_by_field_name("body")
-                return {
-                    "type": "function",
-                    "name": node_text(name_node) if name_node else "",
-                    "params": [node_text(p) for p in params_node.children if p.type=="identifier"] if params_node else [],
-                    "start_line": node.start_point[0],
-                    "end_line": node.end_point[0],
-                    "body": walk(body_node) if body_node else []
-                }
-        # Java
-        elif lang == "java":
-            if t == "method_declaration":
-                name_node = node.child_by_field_name("name")
-                params_node = node.child_by_field_name("parameters")
-                body_node = node.child_by_field_name("body")
-                return {
-                    "type": "method",
-                    "name": node_text(name_node) if name_node else "",
-                    "params": [node_text(p) for p in params_node.children if p.type=="identifier"] if params_node else [],
-                    "start_line": node.start_point[0],
-                    "end_line": node.end_point[0],
-                    "body": walk(body_node) if body_node else []
-                }
-        # Go
-        elif lang == "go":
-            if t == "function_declaration":
-                name_node = node.child_by_field_name("name")
-                params_node = node.child_by_field_name("parameters")
-                body_node = node.child_by_field_name("body")
-                return {
-                    "type": "function",
-                    "name": node_text(name_node) if name_node else "",
-                    "params": [node_text(p) for p in params_node.children] if params_node else [],
-                    "start_line": node.start_point[0],
-                    "end_line": node.end_point[0],
-                    "body": walk(body_node) if body_node else []
-                }
-        # C/C++
-        elif lang in ("c","cpp"):
-            if t == "function_definition":
-                name = None
-                for child in node.children:
-                    if child.type=="function_declarator":
-                        for sub in child.children:
-                            if sub.type=="identifier":
-                                name = node_text(sub)
-                return {"type":"function","name":name,"start_line":node.start_point[0],"end_line":node.end_point[0],"body":[]}
-
-        # recurse
-        children = []
-        for c in node.children:
-            res = walk(c)
-            if res:
-                children.append(res)
-        return children or None
-
-    return walk(tree)
-
 
