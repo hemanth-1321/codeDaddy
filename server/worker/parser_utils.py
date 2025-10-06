@@ -27,128 +27,124 @@ def parse_file(file_path, lang_name):
     parser = get_parser(lang_name)
     with open(file_path, "rb") as f:
         source_code = f.read()
+    print("source code",source_code)
     tree = parser.parse(source_code)
+    print("parser",tree)
+    
     return tree, source_code
+
 
 # ---------- Extract functions/classes ----------
 def extract_functions_from_ast(tree, source_code, lang_name):
     definitions = []
-    
+
     def walk(node):
         extracted = None
-        
-        if lang_name == "python":
-            if node.type in ("function_definition", "class_definition"):
-                name_node = node.child_by_field_name("name")
-                if name_node:
-                    name = source_code[name_node.start_byte:name_node.end_byte].decode("utf-8")
-                    code = source_code[node.start_byte:node.end_byte].decode("utf-8")
-                    params = []
-                    if node.type == "function_definition":
-                        params_node = node.child_by_field_name("parameters")
-                        if params_node:
-                            params_text = source_code[params_node.start_byte:params_node.end_byte].decode("utf-8")
-                            params.append(params_text)
-                    extracted = {
-                        "name": name,
-                        "type": node.type.replace("_definition", ""),
-                        "code": code,
-                        "start_line": node.start_point[0] + 1,
-                        "end_line": node.end_point[0] + 1,
-                        "parameters": params[0] if params else None
-                    }
-                    
-        elif lang_name in ("javascript", "typescript"):
-            if node.type in ("function_declaration", "class_declaration", "method_definition"):
-                name_node = node.child_by_field_name("name")
-                if name_node:
-                    name = source_code[name_node.start_byte:name_node.end_byte].decode("utf-8")
-                    code = source_code[node.start_byte:node.end_byte].decode("utf-8")
-                    params = []
-                    params_node = node.child_by_field_name("parameters")
-                    if params_node:
-                        params_text = source_code[params_node.start_byte:params_node.end_byte].decode("utf-8")
-                        params.append(params_text)
-                    extracted = {
-                        "name": name,
-                        "type": node.type.replace("_declaration", "").replace("_definition", ""),
-                        "code": code,
-                        "start_line": node.start_point[0] + 1,
-                        "end_line": node.end_point[0] + 1,
-                        "parameters": params[0] if params else None
-                    }
-                    
-        elif lang_name == "java":
-            if node.type in ("method_declaration", "class_declaration"):
-                name_node = node.child_by_field_name("name")
-                if name_node:
-                    name = source_code[name_node.start_byte:name_node.end_byte].decode("utf-8")
-                    code = source_code[node.start_byte:node.end_byte].decode("utf-8")
-                    params = []
-                    if node.type == "method_declaration":
-                        params_node = node.child_by_field_name("parameters")
-                        if params_node:
-                            params_text = source_code[params_node.start_byte:params_node.end_byte].decode("utf-8")
-                            params.append(params_text)
-                    extracted = {
-                        "name": name,
-                        "type": node.type.replace("_declaration", ""),
-                        "code": code,
-                        "start_line": node.start_point[0] + 1,
-                        "end_line": node.end_point[0] + 1,
-                        "parameters": params[0] if params else None
-                    }
-                    
-        elif lang_name == "go":
-            if node.type in ("function_declaration", "method_declaration", "type_declaration"):
-                name_node = node.child_by_field_name("name")
-                if name_node:
-                    name = source_code[name_node.start_byte:name_node.end_byte].decode("utf-8")
-                    code = source_code[node.start_byte:node.end_byte].decode("utf-8")
-                    params = []
-                    params_node = node.child_by_field_name("parameters")
-                    if params_node:
-                        params_text = source_code[params_node.start_byte:params_node.end_byte].decode("utf-8")
-                        params.append(params_text)
-                    extracted = {
-                        "name": name,
-                        "type": node.type.replace("_declaration", ""),
-                        "code": code,
-                        "start_line": node.start_point[0] + 1,
-                        "end_line": node.end_point[0] + 1,
-                        "parameters": params[0] if params else None
-                    }
-                    
-        elif lang_name in ("c", "cpp"):
-            if node.type in ("function_definition", "class_specifier", "struct_specifier"):
-                name = None
-                for child in node.children:
-                    if child.type == "function_declarator":
-                        for subchild in child.children:
-                            if subchild.type == "identifier":
-                                name = source_code[subchild.start_byte:subchild.end_byte].decode("utf-8")
-                                break
-                    elif child.type in ("type_identifier", "identifier"):
-                        name = source_code[child.start_byte:child.end_byte].decode("utf-8")
-                if name:
-                    code = source_code[node.start_byte:node.end_byte].decode("utf-8")
-                    extracted = {
-                        "name": name,
-                        "type": node.type.replace("_definition", "").replace("_specifier", ""),
-                        "code": code,
-                        "start_line": node.start_point[0] + 1,
-                        "end_line": node.end_point[0] + 1,
-                        "parameters": None
-                    }
-        
+
+        if lang_name == "python" and node.type in ("function_definition", "class_definition"):
+            name_node = node.child_by_field_name("name")
+            if name_node:
+                name = source_code[name_node.start_byte:name_node.end_byte]
+                params_node = node.child_by_field_name("parameters") if node.type=="function_definition" else None
+                params = source_code[params_node.start_byte:params_node.end_byte] if params_node else None
+                extracted = {
+                    "name": name,
+                    "type": node.type.replace("_definition",""),
+                    "start_line": node.start_point[0]+1,
+                    "end_line": node.end_point[0]+1,
+                    "parameters": params,
+                    "children": []
+                }
+
+        # JS / TS
+        elif lang_name in ("javascript","typescript") and node.type in ("function_declaration","class_declaration","method_definition"):
+            name_node = node.child_by_field_name("name")
+            if name_node:
+                name = source_code[name_node.start_byte:name_node.end_byte]
+                params_node = node.child_by_field_name("parameters")
+                params = source_code[params_node.start_byte:params_node.end_byte] if params_node else None
+                extracted = {
+                    "name": name,
+                    "type": node.type.replace("_declaration","").replace("_definition",""),
+                    "start_line": node.start_point[0]+1,
+                    "end_line": node.end_point[0]+1,
+                    "parameters": params,
+                    "children": []
+                }
+
+        # Java
+        elif lang_name == "java" and node.type in ("method_declaration","class_declaration"):
+            name_node = node.child_by_field_name("name")
+            if name_node:
+                name = source_code[name_node.start_byte:name_node.end_byte]
+                params_node = node.child_by_field_name("parameters") if node.type=="method_declaration" else None
+                params = source_code[params_node.start_byte:params_node.end_byte] if params_node else None
+                extracted = {
+                    "name": name,
+                    "type": node.type.replace("_declaration",""),
+                    "start_line": node.start_point[0]+1,
+                    "end_line": node.end_point[0]+1,
+                    "parameters": params,
+                    "children": []
+                }
+
+        # Go
+        elif lang_name=="go" and node.type in ("function_declaration","method_declaration","type_declaration"):
+            name_node = node.child_by_field_name("name")
+            if name_node:
+                name = source_code[name_node.start_byte:name_node.end_byte]
+                params_node = node.child_by_field_name("parameters")
+                params = source_code[params_node.start_byte:params_node.end_byte] if params_node else None
+                extracted = {
+                    "name": name,
+                    "type": node.type.replace("_declaration",""),
+                    "start_line": node.start_point[0]+1,
+                    "end_line": node.end_point[0]+1,
+                    "parameters": params,
+                    "children": []
+                }
+
+        # C / C++
+        elif lang_name in ("c","cpp") and node.type in ("function_definition","class_specifier","struct_specifier"):
+            name = None
+            for child in node.children:
+                if child.type=="function_declarator":
+                    for sub in child.children:
+                        if sub.type=="identifier":
+                            name = source_code[sub.start_byte:sub.end_byte]
+                            break
+                elif child.type in ("type_identifier","identifier"):
+                    name = source_code[child.start_byte:child.end_byte]
+            if name:
+                extracted = {
+                    "name": name,
+                    "type": node.type.replace("_definition","").replace("_specifier",""),
+                    "start_line": node.start_point[0]+1,
+                    "end_line": node.end_point[0]+1,
+                    "parameters": None,
+                    "children": []
+                }
+
         if extracted:
             definitions.append(extracted)
-        
+
         for child in node.children:
             walk(child)
-    
+
     walk(tree.root_node)
     return definitions
+
+# --- Context helpers ---
+def extract_docstring_and_key_statements(node, code_lines):
+    docstring = ""
+    key_statements = []
+    for child in node.children:
+        if child.type=="string" and not docstring:
+            docstring = "\n".join(code_lines[child.start_point[0]:child.end_point[0]]).strip('"').strip("'")
+        elif child.type in ("call","return","assignment"):
+            stmt_lines = code_lines[child.start_point[0]:child.end_point[0]]
+            key_statements.append(" ".join(stmt_lines).strip())
+    return docstring, key_statements
 
 # ---------- Extract imports ----------
 def extract_imports_with_tree_sitter(file_path, lang_name):
@@ -248,3 +244,92 @@ def resolve_import_path(import_str, current_file, temp_dir, lang):
             return os.path.relpath(java_path, temp_dir)
     
     return None
+
+
+def ast_to_json_multilang(tree, source_code, lang):
+    """
+    Converts AST for Python, JS/TS, Java, Go, C/C++ to structured JSON.
+    """
+    def node_text(node):
+        return source_code[node.start_byte:node.end_byte].decode("utf-8")
+
+    def walk(node):
+        t = node.type
+        # Python
+        if lang == "python":
+            if t == "function_definition":
+                name_node = node.child_by_field_name("name")
+                params_node = node.child_by_field_name("parameters")
+                body_node = node.child_by_field_name("body")
+                return {
+                    "type": "function",
+                    "name": node_text(name_node) if name_node else "",
+                    "params": [node_text(p) for p in params_node.children if p.type=="identifier"] if params_node else [],
+                    "start_line": node.start_point[0],
+                    "end_line": node.end_point[0],
+                    "body": walk(body_node) if body_node else []
+                }
+        # JS/TS
+        elif lang in ("javascript","typescript"):
+            if t in ("function_declaration","method_definition"):
+                name_node = node.child_by_field_name("name")
+                params_node = node.child_by_field_name("parameters")
+                body_node = node.child_by_field_name("body")
+                return {
+                    "type": "function",
+                    "name": node_text(name_node) if name_node else "",
+                    "params": [node_text(p) for p in params_node.children if p.type=="identifier"] if params_node else [],
+                    "start_line": node.start_point[0],
+                    "end_line": node.end_point[0],
+                    "body": walk(body_node) if body_node else []
+                }
+        # Java
+        elif lang == "java":
+            if t == "method_declaration":
+                name_node = node.child_by_field_name("name")
+                params_node = node.child_by_field_name("parameters")
+                body_node = node.child_by_field_name("body")
+                return {
+                    "type": "method",
+                    "name": node_text(name_node) if name_node else "",
+                    "params": [node_text(p) for p in params_node.children if p.type=="identifier"] if params_node else [],
+                    "start_line": node.start_point[0],
+                    "end_line": node.end_point[0],
+                    "body": walk(body_node) if body_node else []
+                }
+        # Go
+        elif lang == "go":
+            if t == "function_declaration":
+                name_node = node.child_by_field_name("name")
+                params_node = node.child_by_field_name("parameters")
+                body_node = node.child_by_field_name("body")
+                return {
+                    "type": "function",
+                    "name": node_text(name_node) if name_node else "",
+                    "params": [node_text(p) for p in params_node.children] if params_node else [],
+                    "start_line": node.start_point[0],
+                    "end_line": node.end_point[0],
+                    "body": walk(body_node) if body_node else []
+                }
+        # C/C++
+        elif lang in ("c","cpp"):
+            if t == "function_definition":
+                name = None
+                for child in node.children:
+                    if child.type=="function_declarator":
+                        for sub in child.children:
+                            if sub.type=="identifier":
+                                name = node_text(sub)
+                return {"type":"function","name":name,"start_line":node.start_point[0],"end_line":node.end_point[0],"body":[]}
+
+        # recurse
+        children = []
+        for c in node.children:
+            res = walk(c)
+            if res:
+                children.append(res)
+        return children or None
+
+    return walk(tree)
+
+

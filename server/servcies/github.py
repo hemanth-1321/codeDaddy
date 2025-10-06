@@ -43,7 +43,7 @@ def get_repos_services(installation_id: int):
 def get_repo_by_id(installation_id: int, owner: str, repo: str):
     
     token_url = f"https://api.github.com/app/installations/{installation_id}/access_tokens"
-    headers = get_installations_headers()  # must return JWT headers!
+    headers = get_installations_headers() 
     token_response = requests.post(token_url, headers=headers)
 
     if token_response.status_code != 201:

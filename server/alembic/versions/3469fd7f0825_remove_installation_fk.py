@@ -1,5 +1,6 @@
 """remove installation FK
 
+
 Revision ID: 3469fd7f0825
 Revises: 
 Create Date: 2025-10-01 22:46:14.427037
