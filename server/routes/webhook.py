@@ -21,7 +21,7 @@ def verify_signature(payload: bytes, signature: str) -> bool:
 @router.post("/github")
 async def webhook(request:Request):
     signature=request.headers.get("X-Hub-Signature-256")
-    if not signature:
+    if not signature:   
         raise HTTPException(status_code=403,detail="missing signature")
     body=await request.body()
     if not verify_signature(body,signature):

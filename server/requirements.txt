@@ -10,3 +10,6 @@ pydantic_settings
 redis
 rq
 tree_sitter==0.20.4
+qdrant_client
+langchain-google-genai
+langchain
