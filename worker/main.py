@@ -1,14 +1,20 @@
 import os
 import tempfile
 import shutil
+from redis import Redis
+from rq import Queue
 import json
-from .parser_utils import parse_file, extract_imports_with_tree_sitter, resolve_import_path, LANGUAGE_MAP
-from .write_pr_txt import write_pr_txt
-from .graph_utils import build_graph_from_ast, build_semantic_graph
-from .llm_context import prepare_llm_context
-from .git_utils import clone_and_checkout, get_changed_files
-
+from .services.parser_utils import parse_file, extract_imports_with_tree_sitter, resolve_import_path, LANGUAGE_MAP
+from .services.write_pr_txt import write_pr_txt
+from .services.graph_utils import build_graph_from_ast, build_semantic_graph
+from .services.llm_context import prepare_llm_context
+from .services.git_utils import clone_and_checkout, get_changed_files
+from server.agentic.agent_worker import process_ai_job
 import networkx as nx
+
+connection=Redis(host="localhost",port=6379,db=0)
+queue=Queue("pr_context_queue",connection=connection)
+
 
 def process_pr(pr_data, output_dir="results"):
     repo_url = pr_data["clone_url"]
@@ -16,6 +22,9 @@ def process_pr(pr_data, output_dir="results"):
     base_branch = pr_data["base_branch"]
     head_branch = pr_data["head_branch"]
     repo_name = pr_data.get("repo_name", os.path.basename(repo_url).replace(".git", ""))
+
+    # Replace '/' with '_' to make filesystem-safe filename
+    safe_repo_name = repo_name.replace("/", "_")
 
     print(f"[Worker] Reviewing PR #{pr_number} from {repo_name}")
 
@@ -90,14 +99,32 @@ def process_pr(pr_data, output_dir="results"):
         }
 
         # Write JSON context
-        context_json_path = os.path.join(output_dir, f"pr_{pr_number}_context.json")
+        context_json_path = os.path.join(output_dir, f"pr_{safe_repo_name}_{pr_number}_context.json")
         with open(context_json_path, "w", encoding="utf-8") as f:
             json.dump(llm_context, f, indent=2)
 
         # Write TXT context
-        context_txt_path = write_pr_txt(pr_data, parsed_files, changed_files, temp_dir, output_dir)
+        context_txt_path = write_pr_txt(
+            pr_data,
+            parsed_files,
+            changed_files,
+            temp_dir,
+            output_dir,
+            file_name=os.path.join(output_dir, f"pr_{safe_repo_name}_{pr_number}_context.txt")
+        )
 
         print(f"[Worker] LLM context written: JSON -> {context_json_path}, TXT -> {context_txt_path}")
+
+        queue_data = {
+            "pr_number": pr_number,
+            "repo_name": repo_name,
+            "repo_url": repo_url,
+            "context_json": context_json_path,
+            "context_txt": context_txt_path,
+            "total_files_changed": len(changed_files)
+        }
+
+        queue.enqueue(process_ai_job, queue_data)
 
         return {
             "pr_number": pr_number,

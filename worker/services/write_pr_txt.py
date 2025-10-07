@@ -3,14 +3,14 @@ import os
 from .parser_utils import  extract_imports_with_tree_sitter, resolve_import_path, LANGUAGE_MAP
 
 
-def write_pr_txt(pr_data, parsed_files, changed_files, temp_dir, output_dir="results"):
+def write_pr_txt(pr_data, parsed_files, changed_files, temp_dir, output_dir="results",file_name=None):
     """
     Create a text file for the PR containing:
     1. Git diff for changed files
     2. Full source code of changed + imported files
     """
     pr_number = pr_data["pr_number"]
-    txt_path = os.path.join(output_dir, f"pr_{pr_number}_context.txt")
+    txt_path = file_name or os.path.join(output_dir, f"pr_{pr_number}_context.txt")
 
     with open(txt_path, "w", encoding="utf-8") as f:
         f.write(f"PR #{pr_number} - Repo: {pr_data.get('repo_name', '')}\n")
@@ -20,7 +20,6 @@ def write_pr_txt(pr_data, parsed_files, changed_files, temp_dir, output_dir="res
         for file in changed_files:
             diff_path = os.path.join(temp_dir, file)
             if os.path.exists(diff_path):
-                # Generate diff using git
                 import subprocess
                 try:
                     diff_text = subprocess.check_output(
@@ -36,7 +35,6 @@ def write_pr_txt(pr_data, parsed_files, changed_files, temp_dir, output_dir="res
         f.write("\n=== FULL FILES (Changed + Imported) ===\n")
         included_files = set(changed_files)
         for file in changed_files:
-            # Include imports
             ext = os.path.splitext(file)[1]
             lang = LANGUAGE_MAP.get(ext)
             if lang:
@@ -52,5 +50,5 @@ def write_pr_txt(pr_data, parsed_files, changed_files, temp_dir, output_dir="res
                 f.write(f"\n--- {file} ---\n")
                 with open(abs_path, "r", encoding="utf-8") as code_file:
                     f.write(code_file.read())
-    
+
     return txt_path

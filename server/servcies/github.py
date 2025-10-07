@@ -1,7 +1,7 @@
 import requests
 
 from fastapi import HTTPException
-from utils.generate_app_jwt import get_installations_headers
+from ..utils.generate_app_jwt import get_installations_headers
 
 def get_installations_service():
     url = "https://api.github.com/app/installations"
