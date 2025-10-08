@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
-from routes.webhook import router as webhook_router
-from servcies.github import get_installations_service, get_repos_services,get_repo_by_id
+from server.routes.webhook import router as webhook_router
+from server.servcies.github import get_installations_service, get_repos_services,get_repo_by_id
 
 app = FastAPI()
 

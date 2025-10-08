@@ -9,7 +9,7 @@ from .services.write_pr_txt import write_pr_txt
 from .services.graph_utils import build_graph_from_ast, build_semantic_graph
 from .services.llm_context import prepare_llm_context
 from .services.git_utils import clone_and_checkout, get_changed_files
-from server.agentic.agent_worker import process_ai_job
+from server.agentic.main import process_ai_job
 import networkx as nx
 
 connection=Redis(host="localhost",port=6379,db=0)

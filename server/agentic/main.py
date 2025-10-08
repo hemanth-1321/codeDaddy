@@ -1,7 +1,7 @@
 import os
 import json
 from redis import Redis
-from agentic.utils.qdrant_db import prepare_and_store_context
+from server.agentic.utils.qdrant_db import prepare_and_store_context
 
 
 redis_conn = Redis(host="localhost", port=6379, db=0)
@@ -38,5 +38,5 @@ def process_ai_job(job_data: dict):
         print(f"[Agent] ❌ TXT context not found: {context_txt_path}")
         
     prepare_and_store_context(pr_number,repo_name,txt_data,json_data)
-
+    
     print(f"[Agent] ✅ Done processing PR #{pr_number}\n")
