@@ -4,6 +4,7 @@ import json
 from qdrant_client import QdrantClient, models
 from qdrant_client.models import PointStruct
 from dotenv import load_dotenv
+from typing import Dict
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
 
 load_dotenv()
@@ -67,3 +68,37 @@ def prepare_and_store_context(pr_number, repo_name, txt_data, json_data):
     
     print(f"[Agent] Context stored in Qdrant for PR #{pr_number}")
 
+
+def store_pr_learning(pr_number:str, repo_name:str, learnings:Dict, human_feedback:str):
+    """
+    Store AI findings and human corrections in vector DB for future PRs
+    """
+    combined_content = f"PR #{pr_number} - Repo: {repo_name}\n\n"
+    combined_content += f"--- AI Learnings ---\n{json.dumps(learnings, indent=2)}\n\n"
+    if human_feedback:
+        combined_content += f"--- Human Feedback ---\n{human_feedback}\n"
+
+    vector = embeddings.embed_query(combined_content)
+
+    point = PointStruct(
+        id=str(uuid.uuid4()),
+        vector=vector,
+        payload={
+            "type":"learning",
+            "pr_number":pr_number,
+            "repo_name":repo_name,
+            "content":combined_content,
+            "learnings":learnings,
+            "human_feedback":human_feedback,
+        },
+    )
+
+    # Ensure collection exists
+    if "pr_learnings" not in [c.name for c in qdrant_client.get_collections().collections]:
+        qdrant_client.create_collection(
+            collection_name="pr_learnings",
+            vectors_config=models.VectorParams(size=768, distance=models.Distance.COSINE),
+        )
+
+    qdrant_client.upsert(collection_name="pr_learnings", points=[point])
+    print(f"[Learning] Stored learnings for PR #{pr_number}")
