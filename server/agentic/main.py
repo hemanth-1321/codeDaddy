@@ -13,7 +13,7 @@ def process_ai_job(job_data: dict):
     """
     pr_number = job_data.get("pr_number")
     repo_name = job_data.get("repo_name")
-
+    commit_sha=job_data.get("commit_sha")
     context_json_path = job_data.get("context_json")
     context_txt_path = job_data.get("context_txt")
 
@@ -50,6 +50,7 @@ def process_ai_job(job_data: dict):
         test_suggestions=[],
         learnings="",
         final_review="",
+        commit_sha=commit_sha,
         review_complete=False
     )
     workflow.invoke(initial_state)

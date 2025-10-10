@@ -32,14 +32,19 @@ async def webhook(request:Request):
     if event=="pull_request" and payload:
         pr = payload.get("pull_request", {})
         repo = payload.get("repository", {})
-        pr_data = {
+        action=payload.get("action")
+        if action in ["opened", "reopened", "synchronize"]:
+             pr_data = {
             "pr_number": payload.get("number"),
             "base_branch": pr.get("base", {}).get("ref"),
             "head_branch": pr.get("head", {}).get("ref"),
             "clone_url": repo.get("clone_url"),
             "repo_name": repo.get("full_name"),
             "action": payload.get("action"),
+            "commit_sha": pr.get("head", {}).get("sha"),
         }
+
+       
         
         print("pr",pr)
         queue.enqueue(process_pr, pr_data)

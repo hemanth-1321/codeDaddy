@@ -1,7 +1,7 @@
-from server.agentic.agents.nodes import fetch_context_agent, code_quality_agent, security_agent, test_agent, performance_agent, aggregator_agent, PRState
+from server.agentic.agents.nodes import fetch_context_agent, code_quality_agent, security_agent, test_agent, performance_agent, PRState
+from server.agentic.agents.aggregator_agent import aggregator_agent
 from langgraph.graph import StateGraph, START, END
 
-# Create graph
 graph = StateGraph(PRState)
 
 graph.add_node("fetch_context_agent", fetch_context_agent)
@@ -22,14 +22,7 @@ graph.add_edge("performance_agent", "aggregator_agent")
 graph.add_edge("test_agent", "aggregator_agent")
 graph.add_edge("aggregator_agent", END)
 
+
 # Compile workflow
 workflow = graph.compile()
 
-# Generate image bytes
-image_bytes = workflow.get_graph().draw_mermaid_png()
-
-# Write to file
-with open("pr_review_workflow.png", "wb") as f:
-    f.write(image_bytes)
-
-print("Workflow image saved to pr_review_workflow.png")

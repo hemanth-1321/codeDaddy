@@ -22,7 +22,7 @@ def process_pr(pr_data, output_dir="results"):
     base_branch = pr_data["base_branch"]
     head_branch = pr_data["head_branch"]
     repo_name = pr_data.get("repo_name", os.path.basename(repo_url).replace(".git", ""))
-
+    commit_sha=pr_data.get("commit_sha")
     # Replace '/' with '_' to make filesystem-safe filename
     safe_repo_name = repo_name.replace("/", "_")
 
@@ -121,7 +121,8 @@ def process_pr(pr_data, output_dir="results"):
             "repo_url": repo_url,
             "context_json": context_json_path,
             "context_txt": context_txt_path,
-            "total_files_changed": len(changed_files)
+            "total_files_changed": len(changed_files),
+            "commit_sha":commit_sha
         }
 
         queue.enqueue(process_ai_job, queue_data)
