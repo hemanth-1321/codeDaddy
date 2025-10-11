@@ -4,6 +4,8 @@ import shutil
 from redis import Redis
 from rq import Queue
 import json
+import urllib.parse
+from dotenv import load_dotenv
 from .services.parser_utils import parse_file, extract_imports_with_tree_sitter, resolve_import_path, LANGUAGE_MAP
 from .services.write_pr_txt import write_pr_txt
 from .services.graph_utils import build_graph_from_ast, build_semantic_graph
@@ -12,7 +14,20 @@ from .services.git_utils import clone_and_checkout, get_changed_files
 from server.agentic.main import process_ai_job
 import networkx as nx
 
-connection=Redis(host="localhost",port=6379,db=0)
+load_dotenv()
+REDIS_URL = os.getenv("REDIS_URL")
+if not REDIS_URL:
+    raise RuntimeError("REDIS_URL is not set")
+
+# ✅ Use Redis.from_url (handles rediss:// & TLS automatically)
+try:
+    connection = Redis.from_url(REDIS_URL, decode_responses=False)
+    connection.ping()
+    print("✅ Connected to Redis successfully")
+except Exception as e:
+    print("❌ Redis connection failed:", e)
+    raise
+
 queue=Queue("pr_context_queue",connection=connection)
 
 
