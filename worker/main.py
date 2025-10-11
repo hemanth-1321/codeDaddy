@@ -23,7 +23,6 @@ def process_pr(pr_data, output_dir="results"):
     head_branch = pr_data["head_branch"]
     repo_name = pr_data.get("repo_name", os.path.basename(repo_url).replace(".git", ""))
     commit_sha=pr_data.get("commit_sha")
-    # Replace '/' with '_' to make filesystem-safe filename
     safe_repo_name = repo_name.replace("/", "_")
 
     print(f"[Worker] Reviewing PR #{pr_number} from {repo_name}")
@@ -32,10 +31,8 @@ def process_pr(pr_data, output_dir="results"):
     os.makedirs(output_dir, exist_ok=True)
 
     try:
-        # Clone repo and checkout
         clone_and_checkout(repo_url, temp_dir, head_branch)
 
-        # Get changed files
         changed_files = get_changed_files(temp_dir, base_branch, head_branch)
 
         combined_graph = nx.DiGraph()
@@ -60,11 +57,9 @@ def process_pr(pr_data, output_dir="results"):
             parsed_files[file_name] = (tree, source_code)
             return tree, source_code
 
-        # Parse changed files
         for file in changed_files:
             parse_file_if_needed(os.path.join(temp_dir, file), file)
 
-        # Resolve imports
         for current_file in list(parsed_files.keys()):
             ext = os.path.splitext(current_file)[1]
             lang = LANGUAGE_MAP.get(ext)
@@ -77,7 +72,6 @@ def process_pr(pr_data, output_dir="results"):
                     parse_file_if_needed(os.path.join(temp_dir, resolved_path), resolved_path)
                     combined_graph.add_edge(current_file, resolved_path, type="import")
 
-        # Prepare LLM context
         llm_context = prepare_llm_context(
             parsed_files,
             changed_files,
@@ -88,7 +82,6 @@ def process_pr(pr_data, output_dir="results"):
             LANGUAGE_MAP
         )
 
-        # Add PR metadata
         llm_context["pr_metadata"] = {
             "pr_number": pr_number,
             "repo_name": repo_name,
@@ -98,12 +91,10 @@ def process_pr(pr_data, output_dir="results"):
             "total_files_changed": len(changed_files)
         }
 
-        # Write JSON context
         context_json_path = os.path.join(output_dir, f"pr_{safe_repo_name}_{pr_number}_context.json")
         with open(context_json_path, "w", encoding="utf-8") as f:
             json.dump(llm_context, f, indent=2)
 
-        # Write TXT context
         context_txt_path = write_pr_txt(
             pr_data,
             parsed_files,

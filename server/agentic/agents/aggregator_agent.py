@@ -2,6 +2,8 @@ import os
 from server.agentic.agents.nodes import PRState
 from server.agentic.utils.llm_client import llm
 from server.servcies.github import post_pr_comment
+
+
 def aggregator_agent(state: PRState) -> dict:
  
     print("aggregator_agent running")
@@ -31,8 +33,6 @@ def aggregator_agent(state: PRState) -> dict:
     # Organize issues by file for inline comments
     file_issues = {}
     for issue in security + quality + performance:
-        # Extract file path if mentioned in issue
-        # This is a simple approach - you may need to enhance based on your issue format
         for file_path in files_changed:
             if file_path in str(issue):
                 if file_path not in file_issues:
@@ -48,7 +48,7 @@ Files Changed: {len(files_changed)} files
 File List: {', '.join(files_changed[:5])}{"..." if len(files_changed) > 5 else ""}
 
 ### Review Data:
-
+Key point: **any direct console or stderr print used for debugging (`print`, `println`, `console.log`, `eprintln`) should be flagged and asked to be removed in just in single sentence.**  
 **Security Findings:**
 {chr(10).join(f"- {s}" for s in security) if security else "✅ No security issues detected"}
 
