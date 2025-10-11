@@ -1,10 +1,14 @@
 import os
 import tempfile
 import shutil
+import networkx as nx
+import json
+import uuid
+import subprocess
+import time
+import boto3
 from redis import Redis
 from rq import Queue
-import json
-import urllib.parse
 from dotenv import load_dotenv
 from .services.parser_utils import parse_file, extract_imports_with_tree_sitter, resolve_import_path, LANGUAGE_MAP
 from .services.write_pr_txt import write_pr_txt
@@ -12,42 +16,64 @@ from .services.graph_utils import build_graph_from_ast, build_semantic_graph
 from .services.llm_context import prepare_llm_context
 from .services.git_utils import clone_and_checkout, get_changed_files
 from server.agentic.main import process_ai_job
-import networkx as nx
 
 load_dotenv()
-REDIS_URL = os.getenv("REDIS_URL")
-if not REDIS_URL:
-    raise RuntimeError("REDIS_URL is not set")
 
-# ✅ Use Redis.from_url (handles rediss:// & TLS automatically)
+# -----------------------------
+# Redis / RQ Setup
+# -----------------------------
+REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
 try:
     connection = Redis.from_url(REDIS_URL, decode_responses=False)
     connection.ping()
-    print("✅ Connected to Redis successfully")
+    print("[Worker] Connected to Redis successfully")
 except Exception as e:
-    print("❌ Redis connection failed:", e)
+    print("[Worker] Redis connection failed:", e)
     raise
 
-queue=Queue("pr_context_queue",connection=connection)
+queue = Queue("pr_context_queue", connection=connection)
 
+# -----------------------------
+# S3 Setup
+# -----------------------------
+s3_client = boto3.client(
+    "s3",
+    aws_access_key_id=os.getenv("AWS_ACCESS_KEY_ID"),
+    aws_secret_access_key=os.getenv("AWS_SECRET_ACCESS_KEY"),
+    region_name=os.getenv("AWS_REGION"),
+)
+bucket_name = os.getenv("S3_BUCKET")
+if not bucket_name:
+    raise ValueError("S3_BUCKET not set in environment variables")
 
-def process_pr(pr_data, output_dir="results"):
+def upload_to_s3(file_path, key_prefix):
+    """Upload a file to S3 and return its S3 URI."""
+    file_name = os.path.basename(file_path)
+    s3_key = f"{key_prefix}/{file_name}"
+    s3_client.upload_file(file_path, bucket_name, s3_key)
+    return f"s3://{bucket_name}/{s3_key}"
+
+# -----------------------------
+# PR Processing Logic
+# -----------------------------
+def process_pr(pr_data):
+    """Process a PR: parse files, build graph, generate context, enqueue AI job."""
     repo_url = pr_data["clone_url"]
     pr_number = pr_data["pr_number"]
     base_branch = pr_data["base_branch"]
     head_branch = pr_data["head_branch"]
     repo_name = pr_data.get("repo_name", os.path.basename(repo_url).replace(".git", ""))
-    commit_sha=pr_data.get("commit_sha")
+    commit_sha = pr_data.get("commit_sha")
     safe_repo_name = repo_name.replace("/", "_")
+    s3_prefix = f"pr_contexts/{safe_repo_name}_{pr_number}"
 
     print(f"[Worker] Reviewing PR #{pr_number} from {repo_name}")
 
     temp_dir = tempfile.mkdtemp()
-    os.makedirs(output_dir, exist_ok=True)
 
     try:
+        # Clone PR
         clone_and_checkout(repo_url, temp_dir, head_branch)
-
         changed_files = get_changed_files(temp_dir, base_branch, head_branch)
 
         combined_graph = nx.DiGraph()
@@ -68,13 +94,14 @@ def process_pr(pr_data, output_dir="results"):
             sem_graph = build_semantic_graph(tree, source_code, LANGUAGE_MAP[ext], file_name)
             combined_graph.update(ast_graph)
             combined_graph.update(sem_graph)
-
             parsed_files[file_name] = (tree, source_code)
             return tree, source_code
 
+        # Parse changed files
         for file in changed_files:
             parse_file_if_needed(os.path.join(temp_dir, file), file)
 
+        # Parse imported files
         for current_file in list(parsed_files.keys()):
             ext = os.path.splitext(current_file)[1]
             lang = LANGUAGE_MAP.get(ext)
@@ -87,14 +114,10 @@ def process_pr(pr_data, output_dir="results"):
                     parse_file_if_needed(os.path.join(temp_dir, resolved_path), resolved_path)
                     combined_graph.add_edge(current_file, resolved_path, type="import")
 
+        # Prepare LLM context
         llm_context = prepare_llm_context(
-            parsed_files,
-            changed_files,
-            combined_graph,
-            temp_dir,
-            base_branch,
-            head_branch,
-            LANGUAGE_MAP
+            parsed_files, changed_files, combined_graph,
+            temp_dir, base_branch, head_branch, LANGUAGE_MAP
         )
 
         llm_context["pr_metadata"] = {
@@ -106,39 +129,39 @@ def process_pr(pr_data, output_dir="results"):
             "total_files_changed": len(changed_files)
         }
 
-        context_json_path = os.path.join(output_dir, f"pr_{safe_repo_name}_{pr_number}_context.json")
+        # Write JSON/TXT locally first
+        context_json_path = os.path.join(temp_dir, f"pr_{safe_repo_name}_{pr_number}_context.json")
         with open(context_json_path, "w", encoding="utf-8") as f:
             json.dump(llm_context, f, indent=2)
 
         context_txt_path = write_pr_txt(
-            pr_data,
-            parsed_files,
-            changed_files,
-            temp_dir,
-            output_dir,
-            file_name=os.path.join(output_dir, f"pr_{safe_repo_name}_{pr_number}_context.txt")
+            pr_data, parsed_files, changed_files, temp_dir, temp_dir,
+            file_name=os.path.join(temp_dir, f"pr_{safe_repo_name}_{pr_number}_context.txt")
         )
 
-        print(f"[Worker] LLM context written: JSON -> {context_json_path}, TXT -> {context_txt_path}")
+        # Upload to S3
+        s3_json_uri = upload_to_s3(context_json_path, s3_prefix)
+        s3_txt_uri = upload_to_s3(context_txt_path, s3_prefix)
+        print(f"[Worker] Uploaded context files to S3: {s3_json_uri}, {s3_txt_uri}")
 
+        # Enqueue AI job with S3 URIs instead of local paths
         queue_data = {
             "pr_number": pr_number,
             "repo_name": repo_name,
             "repo_url": repo_url,
-            "context_json": context_json_path,
-            "context_txt": context_txt_path,
+            "context_json": s3_json_uri,
+            "context_txt": s3_txt_uri,
             "total_files_changed": len(changed_files),
-            "commit_sha":commit_sha
+            "commit_sha": commit_sha
         }
-
         queue.enqueue(process_ai_job, queue_data)
 
         return {
             "pr_number": pr_number,
             "repo": repo_name,
             "changed_files": changed_files,
-            "context_json": context_json_path,
-            "context_txt": context_txt_path,
+            "context_json": s3_json_uri,
+            "context_txt": s3_txt_uri,
             "llm_context": llm_context
         }
 
@@ -148,3 +171,63 @@ def process_pr(pr_data, output_dir="results"):
 
     finally:
         shutil.rmtree(temp_dir)
+
+# -----------------------------
+# Dockerized PR Processing
+# -----------------------------
+def process_pr_docker(pr_data, output_dir="results"):
+    """Run PR in isolated Docker container with logging and timeout."""
+    container_name = f"pr_job_{uuid.uuid4().hex[:8]}"
+    os.makedirs(output_dir, exist_ok=True)
+    log_dir = os.path.join(output_dir, "logs")
+    os.makedirs(log_dir, exist_ok=True)
+    log_file = os.path.join(log_dir, f"{container_name}.log")
+
+    pr_json = os.path.join(output_dir, f"{container_name}_input.json")
+    with open(pr_json, "w") as f:
+        json.dump(pr_data, f)
+
+    container_output_dir = "/app/results" 
+
+    try:
+        print(f"[Docker] Launching container {container_name}...")
+        cmd = [
+        "docker", "run", "--rm",
+        "--name", container_name,
+        "-e", f"S3_BUCKET={os.getenv('S3_BUCKET')}",
+        "-e", f"AWS_ACCESS_KEY_ID={os.getenv('AWS_ACCESS_KEY_ID')}",
+        "-e", f"AWS_SECRET_ACCESS_KEY={os.getenv('AWS_SECRET_ACCESS_KEY')}",
+        "-e", f"AWS_REGION={os.getenv('AWS_REGION')}",
+        "-v", f"{os.path.abspath(output_dir)}:{container_output_dir}",
+        "-v", f"{os.path.abspath(pr_json)}:/app/pr_data.json",
+        "codedaddy-runner:latest",
+        "python", "-m", "server.worker.runner", "/app/pr_data.json"
+    ]
+
+
+        with open(log_file, "w") as lf:
+            proc = subprocess.Popen(cmd, stdout=lf, stderr=lf)
+            start_time = time.time()
+            timeout = 600  # 10 minutes
+
+            while proc.poll() is None:
+                if time.time() - start_time > timeout:
+                    print(f"[Docker] Timeout. Killing container {container_name}...")
+                    subprocess.run(["docker", "kill", container_name], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                    proc.kill()
+                    raise TimeoutError(f"Container {container_name} exceeded {timeout}s runtime.")
+                time.sleep(5)
+
+        if proc.returncode == 0:
+            print(f"[Docker] ✅ Completed container {container_name}")
+        else:
+            print(f"[Docker] ❌ Container {container_name} failed (exit code {proc.returncode})")
+
+    except Exception as e:
+        print(f"[Docker] ❌ Error: {e}")
+
+    finally:
+        if os.path.exists(pr_json):
+            os.remove(pr_json)
+        subprocess.run(["docker", "rm", "-f", container_name], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        print(f"[Docker] 🧹 Cleanup done for {container_name}. Log: {log_file}")

@@ -70,7 +70,7 @@ async def webhook(request: Request):
             }
 
             print("Enqueuing PR:", pr_data)
-            queue.enqueue("server.worker.main.process_pr", pr_data)
+            queue.enqueue("server.worker.main.process_pr_docker", pr_data)
 
             return {"status": "queued", "pr": pr_data}
 
