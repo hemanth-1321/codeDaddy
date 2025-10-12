@@ -56,8 +56,8 @@ export default function Page() {
 
       const data = await res.json();
       console.log("Successfully applied:", data);
-    } catch (err: any) {
-      console.error("Failed to apply:", err.message || err);
+    } catch (err) {
+      console.error("Failed to apply:",  err);
     }
   };
 
@@ -92,9 +92,9 @@ export default function Page() {
 
         const data: Repo = await res.json();
         setRepoData(data);
-      } catch (err: any) {
+      } catch (err) {
         console.error("Failed to fetch repo:", err);
-        setError(err.message || "Unknown error");
+        setError("Unknown error");
       } finally {
         setLoading(false);
       }

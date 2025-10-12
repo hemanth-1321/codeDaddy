@@ -4,23 +4,56 @@ import { useState, useEffect } from "react";
 import { signIn, signOut, useSession } from "next-auth/react";
 import {
   Code2,
-  Sparkles,
-  Zap,
-  Shield,
-  GitBranch,
-  Users,
-  Check,
   Github,
 } from "lucide-react";
+
+// Define proper TypeScript interfaces
+interface GitHubAccount {
+  login: string;
+  id: number;
+  avatar_url: string;
+  type: string;
+}
+
+interface Installation {
+  id: number;
+  account: GitHubAccount;
+  app_id: number;
+  target_type: string;
+}
+
+interface RepoOwner {
+  login: string;
+  id: number;
+  avatar_url: string;
+}
+
+interface Repository {
+  id: number;
+  name: string;
+  full_name: string;
+  owner: RepoOwner;
+  private: boolean;
+  html_url: string;
+  description: string | null;
+}
+
+interface InstallationsResponse {
+  installations: Installation[];
+}
+
+interface ReposResponse {
+  repositories: Repository[];
+}
 
 export default function DashboardPage() {
   const { data: session } = useSession();
   const [scrollY, setScrollY] = useState(0);
-  const [repos, setRepos] = useState<any[]>([]);
-  const [installations, setInstallations] = useState<any[]>([]);
+  const [repos, setRepos] = useState<Repository[]>([]);
+  const [installations, setInstallations] = useState<Installation[]>([]);
   const [hasInstallation, setHasInstallation] = useState(false);
   const router = useRouter();
-  const APP_SLUG = "codedaddy-reviewer"; // 👈 GitHub App slug
+  const APP_SLUG = "codedaddy-reviewer";
 
   useEffect(() => {
     const handleScroll = () => setScrollY(window.scrollY);
@@ -33,12 +66,12 @@ export default function DashboardPage() {
       const res = await fetch("http://localhost:8000/installations", {
         headers: { Authorization: `Bearer ${session?.accessToken}` },
       });
-      const data = await res.json();
+      const data: InstallationsResponse = await res.json();
       const installs = data.installations || [];
       setInstallations(installs);
       setHasInstallation(installs.length > 0);
 
-      // 👇 Automatically fetch repos for the first installation
+      // Automatically fetch repos for the first installation
       if (installs.length > 0) {
         fetchRepos(installs[0].id);
       }
@@ -47,7 +80,7 @@ export default function DashboardPage() {
     }
   }
 
-  async function fetchRepos(installationId: string) {
+  async function fetchRepos(installationId: number) {
     try {
       const res = await fetch(
         `http://localhost:8000/repos?installation_id=${installationId}`,
@@ -55,14 +88,14 @@ export default function DashboardPage() {
           headers: { Authorization: `Bearer ${session?.accessToken}` },
         }
       );
-      const data = await res.json();
+      const data: ReposResponse = await res.json();
       setRepos(data.repositories || []);
     } catch (err) {
       console.error("Error fetching repos", err);
     }
   }
 
-  // 👇 Run on mount only if logged in
+  // Run on mount only if logged in
   useEffect(() => {
     if (session?.accessToken) {
       fetchInstallations();
@@ -134,6 +167,7 @@ export default function DashboardPage() {
             <a
               href={`https://github.com/apps/${APP_SLUG}/installations/new`}
               target="_blank"
+              rel="noopener noreferrer"
               className="px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 rounded-lg font-semibold text-white transition"
             >
               Install GitHub App
