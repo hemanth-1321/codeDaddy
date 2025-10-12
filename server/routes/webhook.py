@@ -98,7 +98,9 @@ async def webhook(request: Request):
         if action in ["opened", "reopened", "synchronize"]:
             pr = payload.get("pull_request", {})
             repo = payload.get("repository", {})
-            installation_id = int(os.getenv("GITHUB_INSTALLATION_ID", "0"))
+            installation = payload.get("installation", {})
+            installation_id = installation.get("id")
+
             
             pr_number = payload.get("number")
             repo_name = repo.get("full_name")
