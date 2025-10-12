@@ -1,1 +1,1 @@
-export const BACKEND_URL="https://api.codedaddy.hemanth.buzz"
+export const BACKEND_URL="https://f3ba049c928c.ngrok-free.app"
