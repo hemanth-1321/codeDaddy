@@ -93,7 +93,9 @@ def process_pr(pr_data):
 
         # Parse changed files
         for file in changed_files:
-            parse_file_if_needed(os.path.join(temp_dir, file), file)
+            file_path=os.path.join(temp_dir,file)
+            if os.path.exists(file_path):
+                parse_file_if_needed(os.path.join(temp_dir, file), file)
 
         # Parse imported files
         for current_file in list(parsed_files.keys()):
