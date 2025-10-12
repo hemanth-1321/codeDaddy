@@ -3,9 +3,6 @@ import tempfile
 import shutil
 import networkx as nx
 import json
-import uuid
-import subprocess
-import time
 import boto3
 from redis import Redis
 from rq import Queue
@@ -16,26 +13,20 @@ from .services.graph_utils import build_graph_from_ast, build_semantic_graph
 from .services.llm_context import prepare_llm_context
 from .services.git_utils import clone_and_checkout, get_changed_files
 from server.agentic.main import process_ai_job
-
 load_dotenv()
 
-# -----------------------------
-# Redis / RQ Setup
-# -----------------------------
+
 REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
 try:
     connection = Redis.from_url(REDIS_URL, decode_responses=False)
     connection.ping()
-    print("[Worker] Connected to Redis successfully")
+    print("[Worker] Connected to Redis successfully from worker")
 except Exception as e:
     print("[Worker] Redis connection failed:", e)
     raise
 
 queue = Queue("pr_context_queue", connection=connection)
 
-# -----------------------------
-# S3 Setup
-# -----------------------------
 s3_client = boto3.client(
     "s3",
     aws_access_key_id=os.getenv("AWS_ACCESS_KEY_ID"),
@@ -53,9 +44,6 @@ def upload_to_s3(file_path, key_prefix):
     s3_client.upload_file(file_path, bucket_name, s3_key)
     return f"s3://{bucket_name}/{s3_key}"
 
-# -----------------------------
-# PR Processing Logic
-# -----------------------------
 def process_pr(pr_data):
     """Process a PR: parse files, build graph, generate context, enqueue AI job."""
     repo_url = pr_data["clone_url"]
@@ -64,6 +52,12 @@ def process_pr(pr_data):
     head_branch = pr_data["head_branch"]
     repo_name = pr_data.get("repo_name", os.path.basename(repo_url).replace(".git", ""))
     commit_sha = pr_data.get("commit_sha")
+    
+    progress_comment_id = pr_data.get("progress_comment_id")
+    installation_id = pr_data.get("installation_id")
+    owner = pr_data.get("owner")
+    repo = pr_data.get("repo")
+    
     safe_repo_name = repo_name.replace("/", "_")
     s3_prefix = f"pr_contexts/{safe_repo_name}_{pr_number}"
 
@@ -144,7 +138,7 @@ def process_pr(pr_data):
         s3_txt_uri = upload_to_s3(context_txt_path, s3_prefix)
         print(f"[Worker] Uploaded context files to S3: {s3_json_uri}, {s3_txt_uri}")
 
-        # Enqueue AI job with S3 URIs instead of local paths
+        # Enqueue AI job with S3 URIs and progress comment info
         queue_data = {
             "pr_number": pr_number,
             "repo_name": repo_name,
@@ -152,7 +146,11 @@ def process_pr(pr_data):
             "context_json": s3_json_uri,
             "context_txt": s3_txt_uri,
             "total_files_changed": len(changed_files),
-            "commit_sha": commit_sha
+            "commit_sha": commit_sha,
+            "progress_comment_id": progress_comment_id,
+            "installation_id": installation_id,
+            "owner": owner,
+            "repo": repo
         }
         queue.enqueue(process_ai_job, queue_data)
 
@@ -162,7 +160,8 @@ def process_pr(pr_data):
             "changed_files": changed_files,
             "context_json": s3_json_uri,
             "context_txt": s3_txt_uri,
-            "llm_context": llm_context
+            "llm_context": llm_context,
+            "progress_comment_id": progress_comment_id
         }
 
     except Exception as e:
@@ -171,63 +170,3 @@ def process_pr(pr_data):
 
     finally:
         shutil.rmtree(temp_dir)
-
-# -----------------------------
-# Dockerized PR Processing
-# -----------------------------
-def process_pr_docker(pr_data, output_dir="results"):
-    """Run PR in isolated Docker container with logging and timeout."""
-    container_name = f"pr_job_{uuid.uuid4().hex[:8]}"
-    os.makedirs(output_dir, exist_ok=True)
-    log_dir = os.path.join(output_dir, "logs")
-    os.makedirs(log_dir, exist_ok=True)
-    log_file = os.path.join(log_dir, f"{container_name}.log")
-
-    pr_json = os.path.join(output_dir, f"{container_name}_input.json")
-    with open(pr_json, "w") as f:
-        json.dump(pr_data, f)
-
-    container_output_dir = "/app/results" 
-
-    try:
-        print(f"[Docker] Launching container {container_name}...")
-        cmd = [
-        "docker", "run", "--rm",
-        "--name", container_name,
-        "-e", f"S3_BUCKET={os.getenv('S3_BUCKET')}",
-        "-e", f"AWS_ACCESS_KEY_ID={os.getenv('AWS_ACCESS_KEY_ID')}",
-        "-e", f"AWS_SECRET_ACCESS_KEY={os.getenv('AWS_SECRET_ACCESS_KEY')}",
-        "-e", f"AWS_REGION={os.getenv('AWS_REGION')}",
-        "-v", f"{os.path.abspath(output_dir)}:{container_output_dir}",
-        "-v", f"{os.path.abspath(pr_json)}:/app/pr_data.json",
-        "codedaddy-runner:latest",
-        "python", "-m", "server.worker.runner", "/app/pr_data.json"
-    ]
-
-
-        with open(log_file, "w") as lf:
-            proc = subprocess.Popen(cmd, stdout=lf, stderr=lf)
-            start_time = time.time()
-            timeout = 600  # 10 minutes
-
-            while proc.poll() is None:
-                if time.time() - start_time > timeout:
-                    print(f"[Docker] Timeout. Killing container {container_name}...")
-                    subprocess.run(["docker", "kill", container_name], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-                    proc.kill()
-                    raise TimeoutError(f"Container {container_name} exceeded {timeout}s runtime.")
-                time.sleep(5)
-
-        if proc.returncode == 0:
-            print(f"[Docker] ✅ Completed container {container_name}")
-        else:
-            print(f"[Docker] ❌ Container {container_name} failed (exit code {proc.returncode})")
-
-    except Exception as e:
-        print(f"[Docker] ❌ Error: {e}")
-
-    finally:
-        if os.path.exists(pr_json):
-            os.remove(pr_json)
-        subprocess.run(["docker", "rm", "-f", container_name], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        print(f"[Docker] 🧹 Cleanup done for {container_name}. Log: {log_file}")

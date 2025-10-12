@@ -1,4 +1,4 @@
-from typing import TypedDict, List, Annotated
+from typing import TypedDict, List, Annotated,Optional
 from operator import add
 from server.agentic.utils.llm_client import llm
 from server.agentic.utils.vector_tool import search_vector_tool, search_learnings_tool
@@ -20,6 +20,7 @@ class PRState(TypedDict):
     performance_issues: Annotated[List[str], add]
     test_suggestions: Annotated[List[str], add]
     commit_sha:int
+    progress_comment_id: Optional[int]
     learnings: str
     final_review: str
     review_complete: bool
@@ -38,10 +39,9 @@ def fetch_context_agent(state: PRState) -> dict:
         for item in raw_similar_pr
     ]
 
-    learnings = search_learnings_tool(search_query)
 
     # ONLY return the keys you're updating
-    return {"similar_prs": similar_pr, "learnings": str(learnings)}
+    return {"similar_prs": similar_pr,}
 
 def security_agent(state: PRState) -> dict:
     print("security_agent running")

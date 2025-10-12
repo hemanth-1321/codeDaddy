@@ -1,7 +1,7 @@
 import os
 from server.agentic.agents.nodes import PRState
 from server.agentic.utils.llm_client import llm
-from server.servcies.github import post_pr_comment
+from server.servcies.github import post_pr_comment, update_pr_comment
 
 
 def aggregator_agent(state: PRState) -> dict:
@@ -18,18 +18,28 @@ def aggregator_agent(state: PRState) -> dict:
     pr_title = state.get("pr_title", "PR Review")
     files_changed = state.get("files_changed", [])
     pr_description = state.get("pr_description", "")
-    pr_number=state.get("pr_number","")
+    pr_number = state.get("pr_number", "")
     repo_name = state.get("repo_name", "")
+    
+    # NEW: Get progress comment info
+    progress_comment_id = state.get("progress_comment_id")
+    owner = state.get("owner", "")
+    repo = state.get("repo", "")
+    installation_id = state.get("installation_id")
 
-    # Extract owner and repo from "owner/repo"
-    try:
-        owner, repo = repo_name.split("/")
-    except ValueError:
-        raise ValueError(f"Invalid repo_name format: '{repo_name}'. Expected 'owner/repo'.")
+    # Fallback: Extract owner/repo if not provided
+    if not owner or not repo:
+        try:
+            owner, repo = repo_name.split("/")
+        except ValueError:
+            raise ValueError(f"Invalid repo_name format: '{repo_name}'. Expected 'owner/repo'.")
 
-    installation_id = int(os.getenv("GITHUB_INSTALLATION_ID", "0"))
+    # Fallback: Get installation_id from env if not in state
     if not installation_id:
-        raise EnvironmentError("GITHUB_INSTALLATION_ID not found in environment")
+        installation_id = int(os.getenv("GITHUB_INSTALLATION_ID", "0"))
+        if not installation_id:
+            raise EnvironmentError("GITHUB_INSTALLATION_ID not found")
+
     # Organize issues by file for inline comments
     file_issues = {}
     for issue in security + quality + performance:
@@ -74,7 +84,7 @@ Generate a CodeRabbit-style review following this EXACT structure:
 
 ## Changes
 
-| Cohort / File(s) | Summary |
+| File(s) | Summary |
 |------------------|---------|
 {chr(10).join(f"| **{file_path.split('/')[-2] if '/' in file_path else 'Root'}** | [Describe changes] |" for file_path in files_changed[:3])}
 | ... | ... |
@@ -208,16 +218,7 @@ Make it look EXACTLY like a real CodeDaddy review with all the visual polish and
     
     # Count actionable comments (file-specific issues)
     actionable_comments = sum(len(issues) for issues in file_issues.values())
-    print({
-         "final_review": review_content,
-        "review_complete": True,
-        "total_issues": total_issues,
-        "critical_issues": critical_issues,
-        "actionable_comments": actionable_comments,
-        "review_status": "changes_requested" if total_issues > 0 else "approved",
-        "files_with_comments": list(file_issues.keys())
-        
-    })
+    
     result = {
         "final_review": review_content,
         "review_complete": True,
@@ -226,14 +227,43 @@ Make it look EXACTLY like a real CodeDaddy review with all the visual polish and
         "actionable_comments": actionable_comments,
         "review_status": "changes_requested" if total_issues > 0 else "approved",
         "files_with_comments": list(file_issues.keys())
-        
     }
-    post_pr_comment(
-        pr_number=pr_number,
-        owner=owner,
-        repo=repo,
-        body=review_content,
-        installation_id=installation_id
-    )
+    
+    print(f"Review stats: {result}")
+    
+    # Post or update the comment
+    if progress_comment_id:
+        # Update the existing "in progress" comment
+        try:
+            print(f"Updating progress comment {progress_comment_id} with final review")
+            update_pr_comment(
+                comment_id=progress_comment_id,
+                owner=owner,
+                repo=repo,
+                body=review_content,
+                installation_id=installation_id
+            )
+            print("✅ Progress comment updated with final review")
+        except Exception as e:
+            print(f"❌ Failed to update comment {progress_comment_id}: {e}")
+            # Fallback: post new comment if update fails
+            print("Posting as new comment instead")
+            post_pr_comment(
+                pr_number=pr_number,
+                owner=owner,
+                repo=repo,
+                body=review_content,
+                installation_id=installation_id
+            )
+    else:
+        # No progress comment ID - post new comment
+        print("No progress comment found, posting new comment")
+        post_pr_comment(
+            pr_number=pr_number,
+            owner=owner,
+            repo=repo,
+            body=review_content,
+            installation_id=installation_id
+        )
     
     return result

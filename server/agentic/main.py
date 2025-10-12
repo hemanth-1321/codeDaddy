@@ -49,6 +49,12 @@ def process_ai_job(job_data: dict):
     commit_sha = job_data.get("commit_sha")
     context_json_uri = job_data.get("context_json")
     context_txt_uri = job_data.get("context_txt")
+    
+    # NEW: Extract progress comment info
+    progress_comment_id = job_data.get("progress_comment_id")
+    installation_id = job_data.get("installation_id")
+    owner = job_data.get("owner")
+    repo = job_data.get("repo")
 
     json_data = {}
     txt_data = ""
@@ -70,6 +76,7 @@ def process_ai_job(job_data: dict):
         # Store context in Qdrant
         prepare_and_store_context(pr_number, repo_name, txt_data, json_data)
 
+        # Create state with progress comment info
         state = PRState(
             pr_number=int(pr_number) if pr_number else 0,
             repo_name=str(repo_name) if repo_name else "",
@@ -83,11 +90,21 @@ def process_ai_job(job_data: dict):
             learnings="",
             final_review="",
             commit_sha=commit_sha,
-            review_complete=False
+            review_complete=False,
+            # NEW: Add progress comment tracking
+            progress_comment_id=progress_comment_id,
+            installation_id=installation_id,
+            owner=owner,
+            repo=repo
         )
 
+        print(f"Starting workflow with progress_comment_id: {progress_comment_id}")
         workflow.invoke(state)
+        print("Workflow completed successfully")
 
+    except Exception as e:
+        print(f"❌ Error in process_ai_job: {e}")
+        raise
     finally:
         # Clean up local temp files
         for path in [local_json_path, local_txt_path]:
