@@ -59,6 +59,7 @@ def process_pr(pr_data):
     # NEW: Extract progress comment info
     progress_comment_id = pr_data.get("progress_comment_id")
     installation_id = pr_data.get("installation_id")
+    print("installationid",installation_id)
     owner = pr_data.get("owner")
     repo = pr_data.get("repo")
     

@@ -13,7 +13,7 @@ class PRState(TypedDict):
     repo_name: str
     diff_content: str
     pr_description: str
-
+    installation_id: int
     similar_prs: list
     security_issues: Annotated[List[str], add]
     code_quality_issues: Annotated[List[str], add]

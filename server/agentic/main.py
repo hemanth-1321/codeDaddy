@@ -6,9 +6,18 @@ from redis import Redis
 from server.agentic.utils.qdrant_db import prepare_and_store_context
 from server.agentic.agents.graph import workflow
 from server.agentic.agents.nodes import PRState
+from rq import Queue
 
-redis_conn = Redis(host="localhost", port=6379, db=0)
-queue_name = "pr_context_queue"
+REDIS_URL = os.getenv("REDIS_URL")
+try:
+    connection = Redis.from_url(REDIS_URL, decode_responses=False)
+    connection.ping()
+    print("[Worker] Connected to Redis successfully")
+except Exception as e:
+    print("[Worker] Redis connection failed:", e)
+    raise
+
+queue = Queue("pr_context_queue", connection=connection)
 
 # S3 client
 s3_client = boto3.client(
@@ -43,7 +52,7 @@ def delete_s3_file(s3_uri):
         print(f"[S3] Failed to delete {s3_uri}: {e}")
 
 def process_ai_job(job_data: dict):
-    print("Received job", job_data)
+    print("Received job",  job_data)
     pr_number = job_data.get("pr_number")
     repo_name = job_data.get("repo_name")
     commit_sha = job_data.get("commit_sha")
@@ -105,14 +114,6 @@ def process_ai_job(job_data: dict):
         print(f"❌ Error in process_ai_job: {e}")
         raise
     finally:
-        # Clean up local temp files
-        for path in [local_json_path, local_txt_path]:
-            if path and os.path.exists(path):
-                try:
-                    os.remove(path)
-                except Exception:
-                    pass
-        
         # Delete S3 files
         delete_s3_file(context_json_uri)
         delete_s3_file(context_txt_uri)
