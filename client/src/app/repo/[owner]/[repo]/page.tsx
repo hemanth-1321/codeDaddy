@@ -1,5 +1,6 @@
 "use client";
 
+import { BACKEND_URL } from "@/config";
 import { useParams, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
@@ -38,7 +39,7 @@ export default function Page() {
     }
 
     try {
-      const res = await fetch("http://localhost:8000/github/select", {
+      const res = await fetch(`${BACKEND_URL}/github/select`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

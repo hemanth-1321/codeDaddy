@@ -6,6 +6,7 @@ import {
   Code2,
   Github,
 } from "lucide-react";
+import { BACKEND_URL } from "@/config";
 
 // Define proper TypeScript interfaces
 interface GitHubAccount {
@@ -63,7 +64,7 @@ export default function DashboardPage() {
 
   async function fetchInstallations() {
     try {
-      const res = await fetch("http://localhost:8000/installations", {
+      const res = await fetch(`${BACKEND_URL}/installations`, {
         headers: { Authorization: `Bearer ${session?.accessToken}` },
       });
       const data: InstallationsResponse = await res.json();
@@ -83,7 +84,7 @@ export default function DashboardPage() {
   async function fetchRepos(installationId: number) {
     try {
       const res = await fetch(
-        `http://localhost:8000/repos?installation_id=${installationId}`,
+        `${BACKEND_URL}/repos?installation_id=${installationId}`,
         {
           headers: { Authorization: `Bearer ${session?.accessToken}` },
         }
