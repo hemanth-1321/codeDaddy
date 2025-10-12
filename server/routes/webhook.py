@@ -46,25 +46,25 @@ def post_progress_comment(pr_number: int, owner: str, repo: str, installation_id
     Post an initial 'review in progress' comment and return the comment ID.
     This mimics CodeRabbit's loading indicator.
     """
-    progress_body = """
-## 🔍 CodeDaddy Review in Progress
+    progress_body = """## 📝 Note
 
-<div align="center">
-  
-  ![Analyzing](https://media.giphy.com/media/3oEjI6SIIHBdRxXI40/giphy.gif)
-  
-  **Your Daddy is reviewing your code...**
-  
-  ⏳ Analyzing changes  
-  🔒 Checking security  
-  ⚡ Reviewing performance  
-  ✨ Evaluating code quality  
-  
-</div>
+Currently processing new changes in this PR. This may take a few minutes, please wait...
+
+<details>
+<summary>📦 Commits</summary>
+
+> Analyzing commits...
+
+</details>
+
+<details>
+<summary>📁 Files selected for processing</summary>
+
+> Scanning files...
+
+</details>
 
 ---
-
-> **This comment will be updated with the full review shortly.**
 
 *Powered by CodeDaddy 🧔🏻‍♂️*
 """
@@ -77,8 +77,6 @@ def post_progress_comment(pr_number: int, owner: str, repo: str, installation_id
     except Exception as e:
         print(f"[Progress] Failed to post progress comment: {e}")
         return None
-
-
 @router.post("/github")
 async def webhook(request: Request):
     signature = request.headers.get("X-Hub-Signature-256", "")
