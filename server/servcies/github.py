@@ -80,12 +80,13 @@ def get_repo_by_id(installation_id: int, owner: str, repo: str):
 
     return res.json()
 
+
 def post_pr_comment(pr_number: int, owner: str, repo: str, body: str, installation_id: int):
     """
     Post a general comment in the PR conversation thread.
     (This is what CodeRabbit does.)
     """
-    print("started posting comment")
+    print("Started posting comment")
     access_token = get_installation_access_token(installation_id)
 
     url = f"https://api.github.com/repos/{owner}/{repo}/issues/{pr_number}/comments"
@@ -98,5 +99,50 @@ def post_pr_comment(pr_number: int, owner: str, repo: str, body: str, installati
 
     if res.status_code not in (200, 201):
         raise HTTPException(status_code=res.status_code, detail=res.text)
-    print("completed")
+    
+    print("Comment posted successfully")
     return res.json()
+
+
+def update_pr_comment(comment_id: int, owner: str, repo: str, body: str, installation_id: int):
+    """
+    Update an existing PR comment with new content.
+    This is used to replace the 'review in progress' comment with the final review.
+    """
+    print(f"Updating comment ID: {comment_id}")
+    access_token = get_installation_access_token(installation_id)
+
+    url = f"https://api.github.com/repos/{owner}/{repo}/issues/comments/{comment_id}"
+    headers = {
+        "Authorization": f"Bearer {access_token}",
+        "Accept": "application/vnd.github+json"
+    }
+
+    res = requests.patch(url, json={"body": body}, headers=headers)
+
+    if res.status_code != 200:
+        raise HTTPException(status_code=res.status_code, detail=res.text)
+    
+    print(f"Comment {comment_id} updated successfully")
+    return res.json()
+
+
+def delete_pr_comment(comment_id: int, owner: str, repo: str, installation_id: int):
+    """
+    Delete a PR comment (optional - in case you want to remove the progress comment).
+    """
+    access_token = get_installation_access_token(installation_id)
+
+    url = f"https://api.github.com/repos/{owner}/{repo}/issues/comments/{comment_id}"
+    headers = {
+        "Authorization": f"Bearer {access_token}",
+        "Accept": "application/vnd.github+json"
+    }
+
+    res = requests.delete(url, headers=headers)
+
+    if res.status_code != 204:
+        raise HTTPException(status_code=res.status_code, detail=res.text)
+    
+    print(f"Comment {comment_id} deleted successfully")
+    return True

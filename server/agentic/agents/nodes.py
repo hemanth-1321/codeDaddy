@@ -1,4 +1,4 @@
-from typing import TypedDict, List, Annotated
+from typing import TypedDict, List, Annotated,Optional
 from operator import add
 from server.agentic.utils.llm_client import llm
 from server.agentic.utils.vector_tool import search_vector_tool, search_learnings_tool
@@ -21,6 +21,7 @@ class PRState(TypedDict):
     test_suggestions: Annotated[List[str], add]
     commit_sha:int
     learnings: str
+    progress_comment_id: Optional[int]
     final_review: str
     review_complete: bool
 
