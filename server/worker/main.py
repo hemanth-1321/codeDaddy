@@ -48,6 +48,7 @@ def upload_to_s3(file_path, key_prefix):
 
 def process_pr(pr_data):
     """Process a PR: parse files, build graph, generate context, enqueue AI job."""
+    print("pr_data",pr_data)
     repo_url = pr_data["clone_url"]
     pr_number = pr_data["pr_number"]
     base_branch = pr_data["base_branch"]
@@ -150,12 +151,12 @@ def process_pr(pr_data):
             "context_txt": s3_txt_uri,
             "total_files_changed": len(changed_files),
             "commit_sha": commit_sha,
-            # NEW: Pass progress comment info to AI job
             "progress_comment_id": progress_comment_id,
             "installation_id": installation_id,
             "owner": owner,
             "repo": repo
         }
+        print("queue",queue_data)
         queue.enqueue(process_ai_job, queue_data)
 
         return {
