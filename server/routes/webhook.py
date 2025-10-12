@@ -48,7 +48,7 @@ def post_progress_comment(pr_number: int, owner: str, repo: str, installation_id
     
     progress_body = """## 📝 Note
 
-        Currently processing new changes in this PR. This may take a few minutes, please wait...
+        Currentl processing new changes in this PR. This may take a few minutes, please wait...
 
         <details>
         <summary>📦 Commits</summary>

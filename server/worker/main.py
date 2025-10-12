@@ -150,7 +150,6 @@ def process_pr(pr_data):
             "context_txt": s3_txt_uri,
             "total_files_changed": len(changed_files),
             "commit_sha": commit_sha,
-            # NEW: Pass progress comment info to AI job
             "progress_comment_id": progress_comment_id,
             "installation_id": installation_id,
             "owner": owner,
