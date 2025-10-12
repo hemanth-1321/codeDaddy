@@ -43,32 +43,32 @@ def verify_signature(payload: bytes, signature: str) -> bool:
 
 def post_progress_comment(pr_number: int, owner: str, repo: str, installation_id: int) -> int:
     """
-    loader comment
+    Post an initial 'review in progress' comment and return the comment ID.
+    This mimics CodeRabbit's loading indicator.
     """
-    
     progress_body = """## 📝 Note
 
-        Currently processing new changes in this PR. This may take a few minutes, please wait...
+Currently processing new changes in this PR. This may take a few minutes, please wait...
 
-        <details>
-        <summary>📦 Commits</summary>
+<details>
+<summary>📦 Commits</summary>
 
-        > Analyzing commits...
+> Analyzing commits...
 
-        </details>
+</details>
 
-        <details>
-        <summary>📁 Files selected for processing</summary>
+<details>
+<summary>📁 Files selected for processing</summary>
 
-        > Scanning files...
+> Scanning files...
 
-        </details>
+</details>
 
-        ---
+---
 
-        *Powered by CodeDaddy 🧔🏻‍♂️*
-        """
-            
+*Powered by CodeDaddy 🧔🏻‍♂️*
+"""
+    
     try:
         response = post_pr_comment(pr_number, owner, repo, progress_body, installation_id)
         comment_id = response.get("id")
