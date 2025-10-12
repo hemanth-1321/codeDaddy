@@ -3,9 +3,6 @@ import tempfile
 import shutil
 import networkx as nx
 import json
-import uuid
-import subprocess
-import time
 import boto3
 from redis import Redis
 from rq import Queue
@@ -19,9 +16,7 @@ from server.agentic.main import process_ai_job
 
 load_dotenv()
 
-# -----------------------------
-# Redis / RQ Setup
-# -----------------------------
+
 REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
 try:
     connection = Redis.from_url(REDIS_URL, decode_responses=False)
@@ -33,9 +28,7 @@ except Exception as e:
 
 queue = Queue("pr_context_queue", connection=connection)
 
-# -----------------------------
-# S3 Setup
-# -----------------------------
+
 s3_client = boto3.client(
     "s3",
     aws_access_key_id=os.getenv("AWS_ACCESS_KEY_ID"),
