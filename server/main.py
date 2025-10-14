@@ -1,7 +1,7 @@
-from fastapi import FastAPI, Query
+from fastapi import FastAPI, Query,Header
 from fastapi.middleware.cors import CORSMiddleware
 from server.routes.webhook import router as webhook_router
-from server.servcies.github import get_installations_service, get_repos_services,get_repo_by_id
+from server.servcies.github import get_user_installations, get_repos_services,get_repo_by_id
 
 app = FastAPI()
 
@@ -15,9 +15,10 @@ app.add_middleware(
 
 app.include_router(webhook_router,prefix="/api/v1/webhook",tags=["webhook"])
 
+
 @app.get("/installations")
-def get_installation():
-    return {"installations": get_installations_service()}
+def get_installation(username:str=Query(...)):
+    return get_user_installations(username)
 
 @app.get("/repos")
 def get_repos(installation_id: int = Query(...)):

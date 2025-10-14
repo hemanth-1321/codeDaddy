@@ -1,5 +1,5 @@
 import requests
-from fastapi import HTTPException
+from fastapi import HTTPException,Query
 from server.utils.generate_app_jwt import get_installations_headers
 
 
@@ -18,27 +18,43 @@ def get_installation_access_token(installation_id: int) -> str:
     return res.json()["token"]
 
 
-def get_installations_service():
-    """
-    List all installations for this GitHub App.
-    """
-    url = "https://api.github.com/app/installations"
-    headers = get_installations_headers()
-    res = requests.get(url, headers=headers)
 
+
+def get_user_installations(username: str):
+    """
+    Fetch installation details by GitHub username (login).
+    """
+    headers = get_installations_headers()
+
+    # Get all installations for the app
+    res = requests.get("https://api.github.com/app/installations", headers=headers)
     if res.status_code != 200:
         raise HTTPException(status_code=res.status_code, detail=res.text)
 
-    data = res.json()
-    return [
-        {
-            "id": inst["id"],
-            "account": inst["account"],
-            "app_slug": inst.get("app_slug", "")
-        }
-        for inst in data
+    installations = res.json()
+
+    # Find installation(s) that belong to the given username
+    matching_installations = [
+        inst for inst in installations
+        if inst.get("account", {}).get("login", "").lower() == username.lower()
     ]
 
+    if not matching_installations:
+        raise HTTPException(status_code=404, detail=f"No installations found for user '{username}'")
+
+    # Return just installation IDs or full installation details
+    return {
+        "username": username,
+        "installations": [
+            {
+                "id": inst["id"],
+                "account": inst["account"]["login"],
+                "html_url": inst["html_url"],
+                "target_type": inst["target_type"],
+            }
+            for inst in matching_installations
+        ]
+    }
 
 def get_repos_services(installation_id: int):
     """
