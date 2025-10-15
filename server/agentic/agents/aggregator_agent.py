@@ -34,12 +34,6 @@ def aggregator_agent(state: PRState) -> dict:
         except ValueError:
             raise ValueError(f"Invalid repo_name format: '{repo_name}'. Expected 'owner/repo'.")
 
-    # Fallback: Get installation_id from env if not in state
-    if not installation_id:
-        installation_id = int(os.getenv("GITHUB_INSTALLATION_ID", "0"))
-        if not installation_id:
-            raise EnvironmentError("GITHUB_INSTALLATION_ID not found")
-
     # Organize issues by file for inline comments
     file_issues = {}
     for issue in security + quality + performance:

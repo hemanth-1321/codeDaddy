@@ -9,27 +9,27 @@ jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
     steps:
-      # 1️⃣ Checkout code (needed for building Docker image)
+      # 1️⃣ Checkout repo
       - name: Check Out Repo
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
       # 2️⃣ Log in to Docker Hub
       - name: Log in to Docker Hub
-        uses: docker/login-action@v2
+        uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
       # 3️⃣ Build and Push Docker image
       - name: Build and Push Docker image
-        uses: docker/build-push-action@v2
+        uses: docker/build-push-action@v5
         with:
           context: .
           file: ./Dockerfile
           push: true
           tags: hemanth2113/codedaddy:latest
 
-      # 4️⃣ Deploy to server via SSH using Docker Compose
+      # 4️⃣ Deploy to server
       - name: Deploy to server via SSH
         uses: appleboy/ssh-action@master
         with:
@@ -37,25 +37,32 @@ jobs:
           username: ${{ secrets.SSH_USERNAME }}
           key: ${{ secrets.SSH_KEY }}
           script: |
-            # Ensure Docker is installed
-            if ! command -v docker > /dev/null; then
-              echo "Docker not found! Please install Docker on the server."
+            set -e
+
+            echo "✅ Starting deploy on server..."
+
+            # Ensure Docker and Compose exist
+            if ! command -v docker >/dev/null; then
+              echo "❌ Docker not found! Please install Docker."
+              exit 1
+            fi
+            if ! docker compose version >/dev/null 2>&1 && ! docker-compose version >/dev/null 2>&1; then
+              echo "❌ Docker Compose not found! Please install Docker Compose."
               exit 1
             fi
 
-            # Ensure Docker Compose is installed
-            if ! command -v docker-compose > /dev/null && ! command -v docker compose > /dev/null; then
-              echo "Docker Compose not found! Please install Docker Compose on the server."
-              exit 1
-            fi
+            # Create project directory
+            mkdir -p /app/codedaddy
 
-            # Create a temporary docker-compose.yml for deployment
-            cat <<EOF > /tmp/docker-compose.yml
+            # Write docker-compose.yml
+            cat <<'EOF' > /app/codedaddy/docker-compose.yml
             version: "3.9"
 
             services:
               web:
                 image: hemanth2113/codedaddy:latest
+                env_file:
+                  - /app/codedaddy/.env
                 ports:
                   - "8000:8000"
                 restart: unless-stopped
@@ -63,20 +70,38 @@ jobs:
               worker:
                 image: hemanth2113/codedaddy:latest
                 command: rq worker
+                env_file:
+                  - /app/codedaddy/.env
                 restart: unless-stopped
             EOF
 
-            # Navigate to /tmp and deploy
-            cd /tmp
+            # Write environment variables securely
+            cat <<'EOF' > /app/codedaddy/.env
+            MY_GITHUB_APP_ID=${{ secrets.MY_GITHUB_APP_ID }}
+            MY_GITHUB_PRIVATE_KEY=${{ secrets.MY_GITHUB_PRIVATE_KEY }}
+            MY_GITHUB_INSTALLATION_ID=${{ secrets.MY_GITHUB_INSTALLATION_ID }}
+            QDRANT_DB=${{ secrets.QDRANT_DB }}
+            QDRANT_API_KEY=${{ secrets.QDRANT_API_KEY }}
+            REDIS_URL=${{ secrets.REDIS_URL }}
+            GOOGLE_API_KEY=${{ secrets.GOOGLE_API_KEY }}
+            AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }}
+            AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}
+            AWS_REGION=${{ secrets.AWS_REGION }}
+            S3_BUCKET=${{ secrets.S3_BUCKET }}
+            EOF
 
-            # Pull latest images
-            sudo docker compose pull
+            cd /app/codedaddy
 
-            # Stop and remove old containers
-            sudo docker compose down || true
+            echo "🚀 Pulling latest Docker image..."
+            docker compose pull
 
-            # Start both web and worker containers
-            sudo docker compose up -d
+            echo "🧹 Stopping old containers..."
+            docker compose down || true
 
-            # Optional: clean up old images to save space
-            sudo docker image prune -f
+            echo "🆙 Starting containers..."
+            docker compose up -d
+
+            echo "🧽 Cleaning old images..."
+            docker image prune -f
+
+            echo "✅ Deployment complete!"

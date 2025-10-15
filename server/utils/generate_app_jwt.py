@@ -7,13 +7,13 @@ from cryptography.hazmat.primitives import serialization
 load_dotenv()
 
 # Load GitHub App ID
-github_app_id_str = os.getenv("GITHUB_APP_ID")
+github_app_id_str = os.getenv("MY_GITHUB_APP_ID")
 if not github_app_id_str:
     raise RuntimeError("❌ GITHUB_APP_ID environment variable is not set")
 GITHUB_APP_ID = int(github_app_id_str)
 
 # Load GitHub Private Key
-raw_key = os.getenv("GITHUB_PRIVATE_KEY")
+raw_key = os.getenv("MY_GITHUB_PRIVATE_KEY")
 if not raw_key:
     raise RuntimeError("❌ GITHUB_PRIVATE_KEY environment variable is not set")
 
