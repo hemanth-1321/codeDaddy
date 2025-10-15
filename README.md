@@ -5,7 +5,7 @@
 
 The following diagram illustrates the high-level architecture of the **CodeDaddy PR Review Workflow**, showing how pull requests and commits are processed asynchronously and analyzed by multiple AI agents in parallel.
 
-![System Design](./codedaddy.excalidraw)
+![System Design](./codedaddy.svg)
 
 ### ⚙️ Flow Overview
 
