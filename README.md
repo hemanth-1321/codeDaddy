@@ -1,13 +1,10 @@
-
-
-
-## High-Level System Design
+## High-level architecture
 
 The following diagram illustrates the high-level architecture of the **CodeDaddy PR Review Workflow**, showing how pull requests and commits are processed asynchronously and analyzed by multiple AI agents in parallel.
 
 ![System Design](./codedaddy.svg)
 
-###Overview
+### Overview
 
 1. **Webhook Trigger** — When a Pull Request or Commit event occurs, a webhook receives the event payload.  
 2. **Background Processing** — The event is pushed into a Python RQ (Redis Queue) background job (`GITHUB_PR_PROCESS`).  
