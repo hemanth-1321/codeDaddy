@@ -9,7 +9,7 @@ jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
     steps:
-      # 1️⃣ Checkout code (needed for building the Docker image)
+      # 1️⃣ Checkout code (needed for building Docker image)
       - name: Check Out Repo
         uses: actions/checkout@v2
 
@@ -29,8 +29,8 @@ jobs:
           push: true
           tags: hemanth2113/codedaddy:latest
 
-      # 4️⃣ Deploy to server via SSH
-      - name: Deploy Docker container on server
+      # 4️⃣ Deploy to server via SSH using Docker Compose
+      - name: Deploy to server via SSH
         uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.SSH_HOST }}
@@ -43,14 +43,40 @@ jobs:
               exit 1
             fi
 
-            # Stop and remove any existing container
-            sudo docker rm -f codedaddy || true
+            # Ensure Docker Compose is installed
+            if ! command -v docker-compose > /dev/null && ! command -v docker compose > /dev/null; then
+              echo "Docker Compose not found! Please install Docker Compose on the server."
+              exit 1
+            fi
 
-            # Pull the latest image from Docker Hub
-            sudo docker pull hemanth2113/codedaddy:latest
+            # Create a temporary docker-compose.yml for deployment
+            cat <<EOF > /tmp/docker-compose.yml
+            version: "3.9"
 
-            # Run the container
-            sudo docker run -d \
-              --name codedaddy \
-              -p 8000:8000 \
-              hemanth2113/codedaddy:latest
+            services:
+              web:
+                image: hemanth2113/codedaddy:latest
+                ports:
+                  - "8000:8000"
+                restart: unless-stopped
+
+              worker:
+                image: hemanth2113/codedaddy:latest
+                command: rq worker
+                restart: unless-stopped
+            EOF
+
+            # Navigate to /tmp and deploy
+            cd /tmp
+
+            # Pull latest images
+            sudo docker compose pull
+
+            # Stop and remove old containers
+            sudo docker compose down || true
+
+            # Start both web and worker containers
+            sudo docker compose up -d
+
+            # Optional: clean up old images to save space
+            sudo docker image prune -f
