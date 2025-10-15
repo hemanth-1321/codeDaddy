@@ -9,32 +9,48 @@ jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
     steps:
+      # 1️⃣ Checkout code (needed for building the Docker image)
       - name: Check Out Repo
         uses: actions/checkout@v2
 
+      # 2️⃣ Log in to Docker Hub
       - name: Log in to Docker Hub
         uses: docker/login-action@v2
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
+      # 3️⃣ Build and Push Docker image
       - name: Build and Push Docker image
         uses: docker/build-push-action@v2
         with:
           context: .
           file: ./Dockerfile
           push: true
-          tags: hemanth2113/codedaddy:latest 
+          tags: hemanth2113/codedaddy:latest
 
-      - name: Deploy to DigitalOcean via SSH
+      # 4️⃣ Deploy to server via SSH
+      - name: Deploy Docker container on server
         uses: appleboy/ssh-action@master
         with:
-            host: ${{ secrets.SSH_HOST }}
-            username: ${{ secrets.SSH_USERNAME }}
-            key: ${{ secrets.SSH_KEY }}
-            script: |
-              cd /root/codeDaddy
-              sudo docker compose pull
-              sudo docker compose down || true
-              sudo docker compose up -d
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USERNAME }}
+          key: ${{ secrets.SSH_KEY }}
+          script: |
+            # Ensure Docker is installed
+            if ! command -v docker > /dev/null; then
+              echo "Docker not found! Please install Docker on the server."
+              exit 1
+            fi
 
+            # Stop and remove any existing container
+            sudo docker rm -f codedaddy || true
+
+            # Pull the latest image from Docker Hub
+            sudo docker pull hemanth2113/codedaddy:latest
+
+            # Run the container
+            sudo docker run -d \
+              --name codedaddy \
+              -p 8000:8000 \
+              hemanth2113/codedaddy:latest
