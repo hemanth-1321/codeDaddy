@@ -19,7 +19,6 @@ except Exception as e:
 
 queue = Queue("pr_context_queue", connection=connection)
 
-# S3 client
 s3_client = boto3.client(
     "s3",
     aws_access_key_id=os.getenv("AWS_ACCESS_KEY_ID"),
@@ -70,22 +69,24 @@ def process_ai_job(job_data: dict):
     local_json_path = local_txt_path = None
 
     try:
-        # Download JSON from S3
         if context_json_uri:
             local_json_path = download_s3_file(context_json_uri)
             with open(local_json_path, "r", encoding="utf-8") as f:
                 json_data = json.load(f)
 
-        # Download TXT from S3
         if context_txt_uri:
             local_txt_path = download_s3_file(context_txt_uri)
             with open(local_txt_path, "r", encoding="utf-8") as f:
                 txt_data = f.read()
 
-        # Store context in Qdrant
-        prepare_and_store_context(pr_number, repo_name, txt_data, json_data)
+        prepare_and_store_context([{
+            "pr_number": pr_number,
+            "repo_name": repo_name,
+            "txt_data": txt_data,
+            "json_data": json_data
+        }])
 
-        # Create state with progress comment info
+
         state = PRState(
             pr_number=int(pr_number) if pr_number else 0,
             repo_name=str(repo_name) if repo_name else "",
@@ -114,6 +115,5 @@ def process_ai_job(job_data: dict):
         print(f"Error in process_ai_job: {e}")
         raise
     finally:
-        # Delete S3 files
         delete_s3_file(context_json_uri)
         delete_s3_file(context_txt_uri)
