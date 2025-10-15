@@ -23,7 +23,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
-          file: ./Dockerfile.web
+          file: ./server.Dockerfile
           push: true
           tags: hemanth2113/codedaddy-web:latest
 
@@ -32,7 +32,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
-          file: ./Dockerfile.worker
+          file: ./worker.Dockerfile
           push: true
           tags: hemanth2113/codedaddy-worker:latest
 
