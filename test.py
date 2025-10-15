@@ -1,5 +1,21 @@
+import os
+import tempfile
+import shutil
 import networkx as nx
+import json
+import boto3
+from redis import Redis
+from rq import Queue
+from dotenv import load_dotenv
+from tree_sitter_languages import get_parser
 import uuid
+
+from server.worker.services.parser_utils import  extract_imports_with_tree_sitter, resolve_import_path, LANGUAGE_MAP
+# from server.worker.services.write_pr_txt import write_pr_txt
+# from server.worker.services.graph_utils import build_graph_from_ast, build_semantic_graph
+# from server.worker.services.llm_context import prepare_llm_context
+from server.worker.services.git_utils import clone_and_checkout, get_changed_files
+# from server.agentic.main import process_ai_job
 
 
 LANG_RULES = {
@@ -65,25 +81,43 @@ LANG_RULES = {
 
 
 
-
-def build_graph_from_ast(tree):
-    """
-    Build a directed graph from a Tree-sitter AST.
-    Each node is labeled as type@start-end.
-    """
-    graph = nx.DiGraph()
+def parse_file(file_path, lang_name):
+    parser = get_parser(lang_name)
+    # print("parser",parser)
+    with open(file_path, "rb") as f:
+        source_code = f.read()
+    # print("source code",source_code)
+    tree = parser.parse(source_code)
+    # print("parser",tree.root_node)
     
-    def walk(node, parent=None):
-        
-        label = f"{node.type}@{node.start_point}-{node.end_point}"
+    return tree, source_code
+
+def print_ast(node, indent=0):
+    """
+    Recursively print the AST nodes.
+    
+    Args:
+        node: tree_sitter.Node
+        indent: current indentation level for pretty printing
+    """
+    prefix = "  " * indent
+    # print(f"{prefix}{node.type} [{node.start_point} - {node.end_point}]")
+    for child in node.children:
+        print_ast(child, indent + 1)
+
+def build_graph_form_ast(tree):
+    graph=nx.DiGraph()
+    def walk(node,parent=None):
+        label=f"{node.type}@{node.start_point}-{node.end_point}"
+        # print("label",label)
         graph.add_node(label)
         if parent:
-            graph.add_edge(parent, label)
+            graph.add_edge(parent,label)
         for child in node.children:
-            walk(child, label)
+            # print("child",child)
+            walk(child,label)
     
     walk(tree.root_node)
-    
     return graph
 
 
@@ -173,3 +207,65 @@ def build_semantic_graph(tree, source_code, lang, file_path):
 
     walk(tree.root_node)
     return graph
+
+
+
+
+
+def process_pr_async(pr_data):
+    repo_url = pr_data["clone_url"]
+    pr_number = pr_data.get("pr_number")
+    base_branch = pr_data.get("base_branch")
+    head_branch = pr_data.get("head_branch")
+    repo_name = pr_data.get("repo_name", os.path.basename(repo_url).replace(".git", ""))
+    safe_repo_name = repo_name.replace("/", "_")
+    s3_prefix = f"pr_contexts/{safe_repo_name}_{pr_number}"
+
+    # Create a temp directory
+    temp_dir = tempfile.mkdtemp()
+    print("Temp dir created:", temp_dir)
+    print("Safe repo name:", safe_repo_name)
+    print("S3 prefix created:", s3_prefix)
+
+    # Clone repo and checkout the PR branch
+    clone_and_checkout(repo_url, temp_dir, head_branch)
+
+    # Get changed files between base and head
+    changed_files = get_changed_files(temp_dir, base_branch, head_branch)
+    # print("Changed files:", changed_files)
+    combined_graph=nx.DiGraph()
+    parsed_files={}
+    # print("changed",combined_graph)
+
+
+    def parse_file_if_needed(file_path,file_name):
+        if file_name in parsed_files:
+            return
+        extention=os.path.splitext(file_name)[1]
+        print("ext",extention)
+        if extention not in LANGUAGE_MAP or not os.path.exists(file_path):
+            return
+        tree,source_code=parse_file(file_path,LANGUAGE_MAP[extention])
+        if isinstance(source_code,bytes):
+            source_code=source_code.decode('utf-8')
+        # print('source code',source_code)
+        # print_ast(tree.root_node)
+        graph=build_graph_form_ast(tree)
+        sem_graph = build_semantic_graph(tree, source_code, LANGUAGE_MAP[extention], file_name)
+        # print("graph",graph)
+        print("graph sem",sem_graph)
+
+
+    
+    for file in changed_files:
+        print("changed",changed_files)
+        parse_file_if_needed(os.path.join(temp_dir,file),file)
+        
+# Example usage
+process_pr_async(pr_data={
+    "clone_url": "https://github.com/hemanth-1321/codedaddy",
+    "repo_name": "codedaddy",
+    "pr_number": 123,
+    "base_branch": "main",
+    "head_branch": "test"
+})
