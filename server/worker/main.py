@@ -105,7 +105,7 @@ def process_pr(pr_data):
             ext = os.path.splitext(current_file)[1]
             lang = LANGUAGE_MAP.get(ext)
             if not lang:
-                continue
+                continue    
             imports = extract_imports_with_tree_sitter(os.path.join(temp_dir, current_file), lang)
             for imp in imports:
                 resolved_path = resolve_import_path(imp, current_file, temp_dir, lang)

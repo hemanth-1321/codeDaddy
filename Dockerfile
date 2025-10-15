@@ -15,4 +15,3 @@ COPY server /app/server
 # Install Python dependencies
 RUN pip install --no-cache-dir -r /app/server/requirements.txt
 
-CMD ["python", "-m", "server.worker.runner"]
