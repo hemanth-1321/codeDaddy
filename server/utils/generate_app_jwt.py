@@ -6,7 +6,6 @@ from cryptography.hazmat.primitives import serialization
 
 load_dotenv()
 
-# Load GitHub App ID
 github_app_id_str = os.getenv("MY_GITHUB_APP_ID")
 if not github_app_id_str:
     raise RuntimeError("❌ GITHUB_APP_ID environment variable is not set")
