@@ -11,19 +11,15 @@ if not github_app_id_str:
     raise RuntimeError("❌ GITHUB_APP_ID environment variable is not set")
 GITHUB_APP_ID = int(github_app_id_str)
 
-# Load GitHub Private Key
 raw_key = os.getenv("MY_GITHUB_PRIVATE_KEY")
 if not raw_key:
     raise RuntimeError("❌ GITHUB_PRIVATE_KEY environment variable is not set")
 
-# Replace escaped \n with real newlines (if using single-line env format)
 GITHUB_PRIVATE_KEY = raw_key.replace("\\n", "\n").strip()
 
-# Debug: show beginning and end of key
 print("🔑 Key starts with:", GITHUB_PRIVATE_KEY[:40])
 print("🔑 Key ends with:", GITHUB_PRIVATE_KEY[-40:])
 
-# Validate PEM format
 try:
     serialization.load_pem_private_key(
         GITHUB_PRIVATE_KEY.encode(),

@@ -2,17 +2,18 @@ version: "3.9"
 
 services:
   web:
-    build: .
+    image: hemanth2113/codedaddy:latest
     container_name: codedaddy_web
     ports:
       - "8000:8000"
     env_file:
       - .env
-    command: ["uvicorn", "server.main:app", "--host", "0.0.0.0", "--port", "8000"]
+    restart: unless-stopped
 
   worker:
-    build: .
+    image: hemanth2113/codedaddy:latest
     container_name: codedaddy_worker
+    command: ["rq", "worker", "github_prs", "pr_context_queue"]
     env_file:
       - .env
-    command: ["rq", "worker", "github_prs", "pr_context_queue"]
+    restart: unless-stopped

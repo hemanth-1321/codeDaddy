@@ -80,6 +80,7 @@ jobs:
             MY_GITHUB_APP_ID=${{ secrets.MY_GITHUB_APP_ID }}
             MY_GITHUB_PRIVATE_KEY=${{ secrets.MY_GITHUB_PRIVATE_KEY }}
             MY_GITHUB_INSTALLATION_ID=${{ secrets.MY_GITHUB_INSTALLATION_ID }}
+
             QDRANT_DB=${{ secrets.QDRANT_DB }}
             QDRANT_API_KEY=${{ secrets.QDRANT_API_KEY }}
             REDIS_URL=${{ secrets.REDIS_URL }}
