@@ -212,11 +212,9 @@ Make it look EXACTLY like a real CodeDaddy review with all the visual polish and
     
     print("Final CodeRabbit-style review generated")
     
-    # Calculate review stats
     total_issues = len(security) + len(quality) + len(performance)
     critical_issues = len(security)
     
-    # Count actionable comments (file-specific issues)
     actionable_comments = sum(len(issues) for issues in file_issues.values())
     
     result = {

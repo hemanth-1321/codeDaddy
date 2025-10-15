@@ -1,7 +1,7 @@
 from typing import TypedDict, List, Annotated,Optional
 from operator import add
 from server.agentic.utils.llm_client import llm
-from server.agentic.utils.vector_tool import search_vector_tool, search_learnings_tool
+from server.agentic.utils.vector_tool import search_vector_tool
 
 class SimilarPR(TypedDict):
     ref_id: str
@@ -39,7 +39,7 @@ def fetch_context_agent(state: PRState) -> dict:
         for item in raw_similar_pr
     ]
 
-    learnings = search_learnings_tool(search_query)
+    learnings = "no past-learnig for now"
 
     # ONLY return the keys you're updating
     return {"similar_prs": similar_pr, "learnings": str(learnings)}

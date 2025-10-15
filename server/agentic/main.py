@@ -111,7 +111,7 @@ def process_ai_job(job_data: dict):
         print("Workflow completed successfully")
 
     except Exception as e:
-        print(f"❌ Error in process_ai_job: {e}")
+        print(f"Error in process_ai_job: {e}")
         raise
     finally:
         # Delete S3 files
