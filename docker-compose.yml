@@ -2,7 +2,7 @@ version: "3.9"
 
 services:
   web:
-    image: hemanth2113/codedaddy:latest
+    image: hemanth2113/codedaddy-web:latest
     container_name: codedaddy_web
     ports:
       - "8000:8000"
@@ -11,9 +11,8 @@ services:
     restart: unless-stopped
 
   worker:
-    image: hemanth2113/codedaddy:latest
+    image: hemanth2113/codedaddy-worker:latest
     container_name: codedaddy_worker
-    command: ["rq", "worker", "github_prs", "pr_context_queue"]
     env_file:
       - .env
     restart: unless-stopped

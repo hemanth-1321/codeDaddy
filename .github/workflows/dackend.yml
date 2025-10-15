@@ -9,28 +9,35 @@ jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
     steps:
-      # 1️⃣ Checkout repo
       - name: Check Out Repo
         uses: actions/checkout@v4
 
-      # 2️⃣ Log in to Docker Hub
       - name: Log in to Docker Hub
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
-      # 3️⃣ Build and Push Docker image
-      - name: Build and Push Docker image
+      # Build and push Web image
+      - name: Build and Push Web Image
         uses: docker/build-push-action@v5
         with:
           context: .
-          file: ./Dockerfile
+          file: ./Dockerfile.web
           push: true
-          tags: hemanth2113/codedaddy:latest
+          tags: hemanth2113/codedaddy-web:latest
 
-      # 4️⃣ Deploy to server
-      - name: Deploy to server via SSH
+      # Build and push Worker image
+      - name: Build and Push Worker Image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile.worker
+          push: true
+          tags: hemanth2113/codedaddy-worker:latest
+
+      # Deploy to server
+      - name: Deploy via SSH
         uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.SSH_HOST }}
@@ -43,44 +50,22 @@ jobs:
 
             # Ensure Docker and Compose exist
             if ! command -v docker >/dev/null; then
-              echo "❌ Docker not found! Please install Docker."
+              echo "❌ Docker not found!"
               exit 1
             fi
             if ! docker compose version >/dev/null 2>&1 && ! docker-compose version >/dev/null 2>&1; then
-              echo "❌ Docker Compose not found! Please install Docker Compose."
+              echo "❌ Docker Compose not found!"
               exit 1
             fi
 
             # Create project directory
             mkdir -p /app/codedaddy
 
-            # Write docker-compose.yml
-            cat <<'EOF' > /app/codedaddy/docker-compose.yml
-            version: "3.9"
-
-            services:
-              web:
-                image: hemanth2113/codedaddy:latest
-                env_file:
-                  - /app/codedaddy/.env
-                ports:
-                  - "8000:8000"
-                restart: unless-stopped
-
-              worker:
-                image: hemanth2113/codedaddy:latest
-                command: rq worker
-                env_file:
-                  - /app/codedaddy/.env
-                restart: unless-stopped
-            EOF
-
-            # Write environment variables securely
+            # Write environment variables
             cat <<'EOF' > /app/codedaddy/.env
             MY_GITHUB_APP_ID=${{ secrets.MY_GITHUB_APP_ID }}
             MY_GITHUB_PRIVATE_KEY=${{ secrets.MY_GITHUB_PRIVATE_KEY }}
             MY_GITHUB_INSTALLATION_ID=${{ secrets.MY_GITHUB_INSTALLATION_ID }}
-
             QDRANT_DB=${{ secrets.QDRANT_DB }}
             QDRANT_API_KEY=${{ secrets.QDRANT_API_KEY }}
             REDIS_URL=${{ secrets.REDIS_URL }}
@@ -91,9 +76,29 @@ jobs:
             S3_BUCKET=${{ secrets.S3_BUCKET }}
             EOF
 
+            # Write docker-compose.yml
+            cat <<'EOF' > /app/codedaddy/docker-compose.yml
+            version: "3.9"
+
+            services:
+              web:
+                image: hemanth2113/codedaddy-web:latest
+                env_file:
+                  - /app/codedaddy/.env
+                ports:
+                  - "8000:8000"
+                restart: unless-stopped
+
+              worker:
+                image: hemanth2113/codedaddy-worker:latest
+                env_file:
+                  - /app/codedaddy/.env
+                restart: unless-stopped
+            EOF
+
             cd /app/codedaddy
 
-            echo "🚀 Pulling latest Docker image..."
+            echo "🚀 Pulling latest Docker images..."
             docker compose pull
 
             echo "🧹 Stopping old containers..."
