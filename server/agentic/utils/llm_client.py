@@ -1,4 +1,4 @@
-from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_groq import ChatGroq
 from dataclasses import dataclass
 import os
 
@@ -10,8 +10,8 @@ class LLMResponse:
     
 class LLMWrapper:
     def __init__(self) :
-        self.client=ChatGoogleGenerativeAI(
-             model="gemini-2.5-flash", 
+        self.client=ChatGroq(
+             model="openai/gpt-oss-20b", 
              temperature=0.5,
         )
     def invoke(self,prompt)->LLMResponse:
