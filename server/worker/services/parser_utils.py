@@ -22,6 +22,7 @@ EXTENSION_GROUPS = {
     "java": [".java"],
 }
 
+# ---------- Parse ----------
 def parse_file(file_path, lang_name):
     parser = get_parser(lang_name)
 
@@ -45,6 +46,106 @@ def parse_file(file_path, lang_name):
 
     return tree, source_code
 
+
+
+def extract_functions_from_ast(tree, source_code, lang_name):
+    definitions = []
+
+    def walk(node):
+        extracted = None
+
+        if lang_name == "python" and node.type in ("function_definition", "class_definition"):
+            name_node = node.child_by_field_name("name")
+            if name_node:
+                name = source_code[name_node.start_byte:name_node.end_byte]
+                params_node = node.child_by_field_name("parameters") if node.type=="function_definition" else None
+                params = source_code[params_node.start_byte:params_node.end_byte] if params_node else None
+                extracted = {
+                    "name": name,
+                    "type": node.type.replace("_definition",""),
+                    "start_line": node.start_point[0]+1,
+                    "end_line": node.end_point[0]+1,
+                    "parameters": params,
+                    "children": []
+                }
+
+        # JS / TS
+        elif lang_name in ("javascript","typescript") and node.type in ("function_declaration","class_declaration","method_definition"):
+            name_node = node.child_by_field_name("name")
+            if name_node:
+                name = source_code[name_node.start_byte:name_node.end_byte]
+                params_node = node.child_by_field_name("parameters")
+                params = source_code[params_node.start_byte:params_node.end_byte] if params_node else None
+                extracted = {
+                    "name": name,
+                    "type": node.type.replace("_declaration","").replace("_definition",""),
+                    "start_line": node.start_point[0]+1,
+                    "end_line": node.end_point[0]+1,
+                    "parameters": params,
+                    "children": []
+                }
+
+        # Java
+        elif lang_name == "java" and node.type in ("method_declaration","class_declaration"):
+            name_node = node.child_by_field_name("name")
+            if name_node:
+                name = source_code[name_node.start_byte:name_node.end_byte]
+                params_node = node.child_by_field_name("parameters") if node.type=="method_declaration" else None
+                params = source_code[params_node.start_byte:params_node.end_byte] if params_node else None
+                extracted = {
+                    "name": name,
+                    "type": node.type.replace("_declaration",""),
+                    "start_line": node.start_point[0]+1,
+                    "end_line": node.end_point[0]+1,
+                    "parameters": params,
+                    "children": []
+                }
+
+        # Go
+        elif lang_name=="go" and node.type in ("function_declaration","method_declaration","type_declaration"):
+            name_node = node.child_by_field_name("name")
+            if name_node:
+                name = source_code[name_node.start_byte:name_node.end_byte]
+                params_node = node.child_by_field_name("parameters")
+                params = source_code[params_node.start_byte:params_node.end_byte] if params_node else None
+                extracted = {
+                    "name": name,
+                    "type": node.type.replace("_declaration",""),
+                    "start_line": node.start_point[0]+1,
+                    "end_line": node.end_point[0]+1,
+                    "parameters": params,
+                    "children": []
+                }
+
+        # C / C++
+        elif lang_name in ("c","cpp") and node.type in ("function_definition","class_specifier","struct_specifier"):
+            name = None
+            for child in node.children:
+                if child.type=="function_declarator":
+                    for sub in child.children:
+                        if sub.type=="identifier":
+                            name = source_code[sub.start_byte:sub.end_byte]
+                            break
+                elif child.type in ("type_identifier","identifier"):
+                    name = source_code[child.start_byte:child.end_byte]
+            if name:
+                extracted = {
+                    "name": name,
+                    "type": node.type.replace("_definition","").replace("_specifier",""),
+                    "start_line": node.start_point[0]+1,
+                    "end_line": node.end_point[0]+1,
+                    "parameters": None,
+                    "children": []
+                }
+
+        if extracted:
+            definitions.append(extracted)
+
+        for child in node.children:
+            walk(child)
+
+    walk(tree.root_node)
+    return definitions
 
 
 
