@@ -47,7 +47,6 @@ def upload_to_s3(file_path, key_prefix):
     return f"s3://{bucket_name}/{s3_key}"
 
 def process_pr(pr_data):
-    """Process a PR: parse files, build graph, generate context, enqueue AI job."""
     print("pr_data",pr_data)
     repo_url = pr_data["clone_url"]
     pr_number = pr_data["pr_number"]
@@ -56,7 +55,6 @@ def process_pr(pr_data):
     repo_name = pr_data.get("repo_name", os.path.basename(repo_url).replace(".git", ""))
     commit_sha = pr_data.get("commit_sha")
     
-    # NEW: Extract progress comment info
     progress_comment_id = pr_data.get("progress_comment_id")
     installation_id = pr_data.get("installation_id")
     print("installationid",installation_id)
@@ -71,7 +69,6 @@ def process_pr(pr_data):
     temp_dir = tempfile.mkdtemp()
 
     try:
-        # Clone PR
         clone_and_checkout(repo_url, temp_dir, head_branch)
         changed_files = get_changed_files(temp_dir, base_branch, head_branch)
 
@@ -96,11 +93,9 @@ def process_pr(pr_data):
             parsed_files[file_name] = (tree, source_code)
             return tree, source_code
 
-        # Parse changed files
         for file in changed_files:
             parse_file_if_needed(os.path.join(temp_dir, file), file)
 
-        # Parse imported files
         for current_file in list(parsed_files.keys()):
             ext = os.path.splitext(current_file)[1]
             lang = LANGUAGE_MAP.get(ext)
@@ -113,7 +108,6 @@ def process_pr(pr_data):
                     parse_file_if_needed(os.path.join(temp_dir, resolved_path), resolved_path)
                     combined_graph.add_edge(current_file, resolved_path, type="import")
 
-        # Prepare LLM context
         llm_context = prepare_llm_context(
             parsed_files, changed_files, combined_graph,
             temp_dir, base_branch, head_branch, LANGUAGE_MAP
@@ -128,7 +122,6 @@ def process_pr(pr_data):
             "total_files_changed": len(changed_files)
         }
 
-        # Write JSON/TXT locally first
         context_json_path = os.path.join(temp_dir, f"pr_{safe_repo_name}_{pr_number}_context.json")
         with open(context_json_path, "w", encoding="utf-8") as f:
             json.dump(llm_context, f, indent=2)
@@ -138,12 +131,10 @@ def process_pr(pr_data):
             file_name=os.path.join(temp_dir, f"pr_{safe_repo_name}_{pr_number}_context.txt")
         )
 
-        # Upload to S3
         s3_json_uri = upload_to_s3(context_json_path, s3_prefix)
         s3_txt_uri = upload_to_s3(context_txt_path, s3_prefix)
         print(f"[Worker] Uploaded context files to S3: {s3_json_uri}, {s3_txt_uri}")
 
-        # Enqueue AI job with S3 URIs and progress comment info
         queue_data = {
             "pr_number": pr_number,
             "repo_name": repo_name,

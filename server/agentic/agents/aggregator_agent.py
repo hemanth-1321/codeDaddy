@@ -34,7 +34,6 @@ def aggregator_agent(state: PRState) -> dict:
         except ValueError:
             raise ValueError(f"Invalid repo_name format: '{repo_name}'. Expected 'owner/repo'.")
 
-    # Organize issues by file for inline comments
     file_issues = {}
     for issue in security + quality + performance:
         for file_path in files_changed:

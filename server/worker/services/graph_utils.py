@@ -67,10 +67,7 @@ LANG_RULES = {
 
 
 def build_graph_from_ast(tree):
-    """
-    Build a directed graph from a Tree-sitter AST.
-    Each node is labeled as type@start-end.
-    """
+    
     graph = nx.DiGraph()
     
     def walk(node, parent=None):
@@ -167,7 +164,6 @@ def build_semantic_graph(tree, source_code, lang, file_path):
                 graph.add_node(parent, type="file")
                 graph.add_edge(parent, called_label, type="calls")
 
-        # recurse children
         for child in node.children:
             walk(child, current_def)
 
