@@ -1,4 +1,4 @@
-from typing import TypedDict, List, Annotated,Optional
+from typing import TypedDict, List, Annotated, Optional
 from operator import add
 from server.agentic.utils.llm_client import llm
 from server.agentic.utils.vector_tool import search_vector_tool
@@ -7,6 +7,7 @@ class SimilarPR(TypedDict):
     ref_id: str
     context: str
     score: float
+
 
 class PRState(TypedDict):
     pr_number: int
@@ -19,17 +20,19 @@ class PRState(TypedDict):
     code_quality_issues: Annotated[List[str], add]
     performance_issues: Annotated[List[str], add]
     test_suggestions: Annotated[List[str], add]
-    commit_sha:int
+    commit_sha: int
     learnings: str
     progress_comment_id: Optional[int]
     final_review: str
     review_complete: bool
 
+
 def fetch_context_agent(state: PRState) -> dict:
     print("fetch_context_agent running")
-    search_query = f"{state.get('pr_number', '')} {state.get('repo_name', '')}"
 
+    search_query = f"{state.get('pr_number', '')} {state.get('repo_name', '')}"
     raw_similar_pr = search_vector_tool(search_query)
+
     similar_pr: List[SimilarPR] = [
         {
             "ref_id": str(item.get("ref_id", "")),
@@ -41,11 +44,16 @@ def fetch_context_agent(state: PRState) -> dict:
 
     learnings = "no past-learnig for now"
 
-    # ONLY return the keys you're updating
     return {"similar_prs": similar_pr, "learnings": str(learnings)}
+
 
 def security_agent(state: PRState) -> dict:
     print("security_agent running")
+    from server.agentic.utils.shrink import compress_state
+
+
+    state = compress_state(state)  
+
     learnings = state.get("learnings", "")
     context = state.get("similar_prs", [])
 
@@ -69,12 +77,13 @@ Return each finding on a separate line, prefixed with severity (CRITICAL / MAJOR
 """
     res = llm.invoke(prompt)
     issues = [line.strip() for line in res.content.splitlines() if line.strip()]
-    
-    # ONLY return the security_issues key
     return {"security_issues": issues}
+
 
 def code_quality_agent(state: PRState) -> dict:
     print("code_quality_agent running")
+    from server.agentic.utils.shrink import compress_state
+    state = compress_state(state)
     learnings = state.get("learnings", "")
     context = state.get("similar_prs", [])
 
@@ -95,12 +104,16 @@ Check: naming conventions, duplication, readability, anti-patterns.
 """
     res = llm.invoke(prompt)
     issues = [line.strip() for line in res.content.splitlines() if line.strip()]
-    
-    # ONLY return the code_quality_issues key
     return {"code_quality_issues": issues}
+
 
 def performance_agent(state: PRState) -> dict:
     print("performance_agent running")
+    from server.agentic.utils.shrink import compress_state
+
+
+    state = compress_state(state)  
+
     learnings = state.get("learnings", "")
     context = state.get("similar_prs", [])
 
@@ -119,11 +132,16 @@ Context:
 """
     res = llm.invoke(prompt)
     issues = [line.strip() for line in res.content.splitlines() if line.strip()]
-    
     return {"performance_issues": issues}
+
 
 def test_agent(state: PRState) -> dict:
     print("test_agent running")
+    from server.agentic.utils.shrink import compress_state
+
+
+    state = compress_state(state) 
+
     learnings = state.get("learnings", "")
     context = state.get("similar_prs", [])
 
@@ -145,5 +163,4 @@ Context:
 """
     res = llm.invoke(prompt)
     issues = [line.strip() for line in res.content.splitlines() if line.strip()]
-    
     return {"test_suggestions": issues}

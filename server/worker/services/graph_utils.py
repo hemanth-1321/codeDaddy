@@ -130,7 +130,7 @@ def build_semantic_graph(tree, source_code, lang, file_path):
                 graph.add_edge(current_def, def_label, type="contains")
             current_def = def_label
 
-        # --- decorators (Python) ---
+        # --- decorators (Python) ---q
         if lang == "python" and node_type == "decorator":
             dec_text = node_text(node).strip()
             dec_label = f"{file_path}::decorator::{dec_text}"
