@@ -77,7 +77,7 @@ Generate a CodeRabbit-style review following this EXACT structure:
 
 ## Changes
 
-| Cohort / File(s) | Summary |
+| File(s) | Summary |
 |------------------|---------|
 {chr(10).join(f"| **{file_path.split('/')[-2] if '/' in file_path else 'Root'}** | [Describe changes] |" for file_path in files_changed[:3])}
 | ... | ... |
