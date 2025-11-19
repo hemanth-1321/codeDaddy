@@ -1,32 +1,25 @@
 from typing import TypedDict, List, Annotated, Optional
 from operator import add
+
 from server.agentic.utils.llm_client import llm
 from server.agentic.utils.vector_tool import search_vector_tool
+from server.agentic.utils.shrink import compress_state
 
+from server.agentic.utils.pr_state import PRState
+# -----------------------------
+# Types
+# -----------------------------
 class SimilarPR(TypedDict):
     ref_id: str
     context: str
     score: float
 
 
-class PRState(TypedDict):
-    pr_number: int
-    repo_name: str
-    diff_content: str
-    pr_description: str
-    installation_id: int
-    similar_prs: list
-    security_issues: Annotated[List[str], add]
-    code_quality_issues: Annotated[List[str], add]
-    performance_issues: Annotated[List[str], add]
-    test_suggestions: Annotated[List[str], add]
-    commit_sha: int
-    learnings: str
-    progress_comment_id: Optional[int]
-    final_review: str
-    review_complete: bool
 
 
+# -----------------------------
+# Fetch Context Agent
+# -----------------------------
 def fetch_context_agent(state: PRState) -> dict:
     print("fetch_context_agent running")
 
@@ -42,18 +35,17 @@ def fetch_context_agent(state: PRState) -> dict:
         for item in raw_similar_pr
     ]
 
-    learnings = "no past-learnig for now"
+    learnings = "no past-learning for now"
+    return {"similar_prs": similar_pr, "learnings": learnings}
 
-    return {"similar_prs": similar_pr, "learnings": str(learnings)}
 
-
+# -----------------------------
+# Security Agent
+# -----------------------------
 def security_agent(state: PRState) -> dict:
     print("security_agent running")
-    from server.agentic.utils.shrink import compress_state
 
-
-    state = compress_state(state)  
-
+    state = compress_state(state)
     learnings = state.get("learnings", "")
     context = state.get("similar_prs", [])
 
@@ -73,19 +65,23 @@ Learnings:
 Context (similar PRs):
 {context}
 
-Return each finding on a separate line, prefixed with severity (CRITICAL / MAJOR / MINOR) if applicable.
+Return each finding on a separate line, prefixed with severity (CRITICAL / MAJOR / MINOR).
 """
+
     res = llm.invoke(prompt)
     issues = [line.strip() for line in res.content.splitlines() if line.strip()]
     return {"security_issues": issues}
 
 
+# -----------------------------
+# Code Quality Agent
+# -----------------------------
 def code_quality_agent(state: PRState) -> dict:
     print("code_quality_agent running")
-    from server.agentic.utils.shrink import compress_state
+
     state = compress_state(state)
     learnings = state.get("learnings", "")
-    context = state.get("similar_prs", [])
+    context = state.get("similar_prs", "")
 
     prompt = f"""
 You are a code quality expert. For the given PR diff, return a bullet list of code quality issues.
@@ -102,20 +98,21 @@ Context:
 
 Check: naming conventions, duplication, readability, anti-patterns.
 """
+
     res = llm.invoke(prompt)
     issues = [line.strip() for line in res.content.splitlines() if line.strip()]
     return {"code_quality_issues": issues}
 
 
+# -----------------------------
+# Performance Agent
+# -----------------------------
 def performance_agent(state: PRState) -> dict:
     print("performance_agent running")
-    from server.agentic.utils.shrink import compress_state
 
-
-    state = compress_state(state)  
-
+    state = compress_state(state)
     learnings = state.get("learnings", "")
-    context = state.get("similar_prs", [])
+    context = state.get("similar_prs", "")
 
     prompt = f"""
 You are a performance expert. Identify potential performance issues in this PR diff.
@@ -130,23 +127,25 @@ Learnings:
 Context:
 {context}
 """
+
     res = llm.invoke(prompt)
     issues = [line.strip() for line in res.content.splitlines() if line.strip()]
     return {"performance_issues": issues}
 
 
+# -----------------------------
+# Test Suggestion Agent
+# -----------------------------
 def test_agent(state: PRState) -> dict:
     print("test_agent running")
-    from server.agentic.utils.shrink import compress_state
 
-
-    state = compress_state(state) 
-
+    state = compress_state(state)
     learnings = state.get("learnings", "")
-    context = state.get("similar_prs", [])
+    context = state.get("similar_prs", "")
 
     prompt = f"""
 You are a testing expert. Based on the PR diff, suggest:
+
 - Unit tests
 - Edge cases
 - Integration tests or mocks needed
@@ -161,6 +160,7 @@ Learnings:
 Context:
 {context}
 """
+
     res = llm.invoke(prompt)
     issues = [line.strip() for line in res.content.splitlines() if line.strip()]
     return {"test_suggestions": issues}

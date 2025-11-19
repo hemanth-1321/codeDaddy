@@ -149,7 +149,7 @@ def process_pr(pr_data):
             "repo": repo
         }
         print("queue",queue_data)
-        queue.enqueue(process_ai_job, queue_data)
+        queue.enqueue(process_ai_job, queue_data,job_timeout=600)
 
         return {
             "pr_number": pr_number,

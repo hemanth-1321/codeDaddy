@@ -1,5 +1,5 @@
 
-from server.agentic.agents.nodes import PRState
+from server.agentic.utils.pr_state import PRState
 
 def shrink_text(text: str, max_chars: int = 4000) -> str:
     if not text:

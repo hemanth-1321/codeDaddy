@@ -5,7 +5,7 @@ import boto3
 from redis import Redis
 from server.agentic.utils.qdrant_db import prepare_and_store_context
 from server.agentic.agents.graph import workflow
-from server.agentic.agents.nodes import PRState
+from server.agentic.utils.pr_state import PRState
 from rq import Queue
 
 REDIS_URL = os.getenv("REDIS_URL")
