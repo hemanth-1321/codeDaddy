@@ -11,7 +11,7 @@ services:
     restart: unless-stopped
 
   worker:
-    image: hemanth2113/codedaddy-worker:latest
+    image: hemanth2113/codedaddy-web:latest
     container_name: codedaddy_worker
     env_file:
       - .env
