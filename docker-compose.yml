@@ -2,17 +2,21 @@ version: "3.9"
 
 services:
   web:
-    image: hemanth2113/codedaddy-web:latest
-    container_name: codedaddy_web
+    image: hemanth2113/codedaddy:latest
+    command: >
+      gunicorn server.main:app 
+      -k uvicorn.workers.UvicornWorker 
+      --workers 4 
+      --bind 0.0.0.0:8000
+    env_file:
+      - /app/codedaddy/.env
     ports:
       - "8000:8000"
-    env_file:
-      - .env
     restart: unless-stopped
 
   worker:
-    image: hemanth2113/codedaddy-web:latest
-    container_name: codedaddy_worker
+    image: hemanth2113/codedaddy:latest
+    command: rq worker github_prs pr_context_queue
     env_file:
-      - .env
+      - /app/codedaddy/.env
     restart: unless-stopped

@@ -1,113 +1,98 @@
-  name: Build and Deploy to Docker Hub
+name: Build and Deploy to Docker Hub
 
-  on:
-    push:
-      branches:
-        - main
+on:
+  push:
+    branches:
+      - main
 
-  jobs:
-    build-and-deploy:
-      runs-on: ubuntu-latest
-      steps:
-        - name: Check Out Repo
-          uses: actions/checkout@v4
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
 
-        - name: Log in to Docker Hub
-          uses: docker/login-action@v3
-          with:
-            username: ${{ secrets.DOCKERHUB_USERNAME }}
-            password: ${{ secrets.DOCKER_PASSWORD }}
+    steps:
+      - name: Check Out Repo
+        uses: actions/checkout@v4
 
-        # Build and push Web image
-        - name: Build and Push Web Image
-          uses: docker/build-push-action@v5
-          with:
-            context: .
-            file: ./server.Dockerfile
-            push: true
-            tags: hemanth2113/codedaddy-web:latest
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
 
-        # Build and push Worker image
-        - name: Build and Push Worker Image
-          uses: docker/build-push-action@v5
-          with:
-            context: .
-            file: ./worker.Dockerfile
-            push: true
-            tags: hemanth2113/codedaddy-worker:latest
+      # Build and Push SINGLE Docker Image
+      - name: Build and Push Image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: hemanth2113/codedaddy:latest
 
-        # Deploy to server
-        - name: Deploy via SSH
-          uses: appleboy/ssh-action@master
-          with:
-            host: ${{ secrets.SSH_HOST }}
-            username: ${{ secrets.SSH_USERNAME }}
-            key: ${{ secrets.SSH_KEY }}
-            script: |
-              set -e
+      # Deploy to server
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USERNAME }}
+          key: ${{ secrets.SSH_KEY }}
 
-              echo "Starting deploy on server..."
+          script: |
+            set -e
+            echo "Starting deploy on server..."
 
-              # Ensure Docker and Compose exist
-              if ! command -v docker >/dev/null; then
-                echo "Docker not found!"
-                exit 1
-              fi
-              if ! docker compose version >/dev/null 2>&1 && ! docker-compose version >/dev/null 2>&1; then
-                echo "Docker Compose not found!"
-                exit 1
-              fi
+            mkdir -p /app/codedaddy
 
-              # Create project directory
-              mkdir -p /app/codedaddy
+            # Write .env
+            cat <<'EOF' > /app/codedaddy/.env
+            MY_GITHUB_APP_ID=${{ secrets.MY_GITHUB_APP_ID }}
+            MY_GITHUB_PRIVATE_KEY=${{ secrets.MY_GITHUB_PRIVATE_KEY }}
+            MY_GITHUB_INSTALLATION_ID=${{ secrets.MY_GITHUB_INSTALLATION_ID }}
+            QDRANT_DB=${{ secrets.QDRANT_DB }}
+            QDRANT_API_KEY=${{ secrets.QDRANT_API_KEY }}
+            REDIS_URL=${{ secrets.REDIS_URL }}
+            GOOGLE_API_KEY=${{ secrets.GOOGLE_API_KEY }}
+            AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }}
+            AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}
+            AWS_REGION=${{ secrets.AWS_REGION }}
+            S3_BUCKET=${{ secrets.S3_BUCKET }}
+            EOF
 
-              # Write environment variables
-              cat <<'EOF' > /app/codedaddy/.env
-              MY_GITHUB_APP_ID=${{ secrets.MY_GITHUB_APP_ID }}
-              MY_GITHUB_PRIVATE_KEY=${{ secrets.MY_GITHUB_PRIVATE_KEY }}
-              MY_GITHUB_INSTALLATION_ID=${{ secrets.MY_GITHUB_INSTALLATION_ID }}
-              QDRANT_DB=${{ secrets.QDRANT_DB }}
-              QDRANT_API_KEY=${{ secrets.QDRANT_API_KEY }}
-              REDIS_URL=${{ secrets.REDIS_URL }}
-              GOOGLE_API_KEY=${{ secrets.GOOGLE_API_KEY }}
-              AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }}
-              AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}
-              AWS_REGION=${{ secrets.AWS_REGION }}
-              S3_BUCKET=${{ secrets.S3_BUCKET }}
-              EOF
+            # Write docker-compose.yml
+            cat <<'EOF' > /app/codedaddy/docker-compose.yml
+            version: "3.9"
 
-              # Write docker-compose.yml
-              cat <<'EOF' > /app/codedaddy/docker-compose.yml
-              version: "3.9"
+            services:
+              web:
+                image: hemanth2113/codedaddy:latest
+                command: >
+                  gunicorn server.main:app
+                  -k uvicorn.workers.UvicornWorker
+                  --workers 4
+                  --bind 0.0.0.0:8000
+                env_file:
+                  - /app/codedaddy/.env
+                ports:
+                  - "8000:8000"
+                restart: unless-stopped
 
-              services:
-                web:
-                  image: hemanth2113/codedaddy-web:latest
-                  env_file:
-                    - /app/codedaddy/.env
-                  ports:
-                    - "8000:8000"
-                  restart: unless-stopped
+              worker:
+                image: hemanth2113/codedaddy:latest
+                command: rq worker github_prs pr_context_queue
+                env_file:
+                  - /app/codedaddy/.env
+                restart: unless-stopped
+            EOF
 
-                worker:
-                  image: hemanth2113/codedaddy-worker:latest
-                  env_file:
-                    - /app/codedaddy/.env
-                  restart: unless-stopped
-              EOF
+            cd /app/codedaddy
 
-              cd /app/codedaddy
+            echo "Pulling latest image..."
+            docker compose pull
 
-              echo "Pulling latest Docker images..."
-              docker compose pull
+            echo "Restarting services..."
+            docker compose down || true
+            docker compose up -d
 
-              echo "Stopping old containers..."
-              docker compose down || true
+            echo "Cleaning old images..."
+            docker image prune -f
 
-              echo "Starting containers..."
-              docker compose up -d
-
-              echo "Cleaning old images..."
-              docker image prune -f
-
-              echo "Deployment complete!"
+            echo "Deployment complete!"
