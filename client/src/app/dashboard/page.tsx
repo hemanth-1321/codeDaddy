@@ -3,7 +3,19 @@
 import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
-import { Search, Plus } from "lucide-react";
+import {
+  Search,
+  Plus,
+  Github,
+  Lock,
+  Unlock,
+  ExternalLink,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
+  Loader2,
+} from "lucide-react";
 import { BACKEND_URL } from "@/config";
 import axios from "axios";
 import { Button } from "@/components/ui/button";
@@ -55,7 +67,10 @@ export default function Page() {
 
   const totalPages = Math.ceil(filteredRepos.length / rowsPerPage);
   const startIndex = (currentPage - 1) * rowsPerPage;
-  const paginatedRepos = filteredRepos.slice(startIndex, startIndex + rowsPerPage);
+  const paginatedRepos = filteredRepos.slice(
+    startIndex,
+    startIndex + rowsPerPage
+  );
 
   const fetchInstallations = async () => {
     if (!session?.user?.login) return;
@@ -81,7 +96,9 @@ export default function Page() {
 
   const fetchRepos = async (installationId: number) => {
     try {
-      const res = await axios.get(`${BACKEND_URL}/repos?installation_id=${installationId}`);
+      const res = await axios.get(
+        `${BACKEND_URL}/repos?installation_id=${installationId}`
+      );
       const repos = res.data.repositories || res.data.repos || [];
 
       setInstallations((prev) =>
@@ -90,7 +107,10 @@ export default function Page() {
         )
       );
     } catch (err) {
-      console.error(`Error fetching repos for installation ${installationId}:`, err);
+      console.error(
+        `Error fetching repos for installation ${installationId}:`,
+        err
+      );
     }
   };
 
@@ -105,42 +125,27 @@ export default function Page() {
     return null;
   }
 
+  // Loading State - Redesigned to match new UI
   if (loading) {
     return (
-      <div className="min-h-screen mt-15">
-        <div className="pt-4 sm:pt-8 px-4 sm:px-6 pb-12 max-w-7xl mx-auto">
-          {/* Header Skeleton */}
-          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4 mb-6">
-            <div className="flex-1">
-              <Skeleton className="h-8 sm:h-9 w-48 mb-2" />
-              <Skeleton className="h-4 sm:h-5 w-full sm:w-96" />
+      <div className="min-h-screen bg-black text-white pt-20 pb-12">
+        <div className="px-4 sm:px-6 max-w-5xl mx-auto space-y-8">
+          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
+            <div className="space-y-2">
+              <Skeleton className="h-8 w-48 bg-zinc-800 rounded-md" />
+              <Skeleton className="h-4 w-64 bg-zinc-800 rounded-md" />
             </div>
-            <Skeleton className="h-10 w-full sm:w-44" />
+            <Skeleton className="h-10 w-32 bg-zinc-800 rounded-lg" />
           </div>
 
-          {/* Search Bar Skeleton */}
-          <div className="mb-6">
-            <Skeleton className="h-10 w-full sm:max-w-md" />
-          </div>
-
-          {/* Table Container */}
-          <div className="bg-[#161b22] border border-[#30363d] rounded-lg overflow-hidden">
-            {/* Table Header - Hidden on mobile */}
-            <div className="hidden sm:block border-b border-[#30363d] px-6 py-3 bg-[#0d1117]">
-              <Skeleton className="h-5 w-32" />
-            </div>
-
-            {/* Table Body Skeletons */}
-            <div className="divide-y divide-[#30363d]">
-              {[...Array(5)].map((_, i) => (
-                <div key={i} className="px-4 sm:px-6 py-3 sm:py-4">
-                  <div className="flex items-center gap-2 sm:gap-3">
-                    <Skeleton className="h-5 w-32 sm:w-48" />
-                    <Skeleton className="h-5 w-14 sm:w-16" />
-                  </div>
-                </div>
-              ))}
-            </div>
+          <div className="space-y-4">
+            <Skeleton className="h-12 w-full bg-zinc-800 rounded-xl" />
+            {[...Array(5)].map((_, i) => (
+              <Skeleton
+                key={i}
+                className="h-20 w-full bg-zinc-900 border border-zinc-800 rounded-xl"
+              />
+            ))}
           </div>
         </div>
       </div>
@@ -148,108 +153,137 @@ export default function Page() {
   }
 
   return (
-    <div className="min-h-screen mt-15">
-      <div className="pt-4 sm:pt-8 px-4 sm:px-6 pb-12 max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4 mb-6">
-          <div className="flex-1">
-            <h1 className="text-2xl sm:text-3xl font-semibold mb-2">Repositories</h1>
-            <p className="text-sm sm:text-base text-gray-400">
-              List of repositories accessible to CodeRabbit.
+    <div className="min-h-screen bg-black text-zinc-100 mt-15 selection:bg-orange-500/30">
+      <div className="pt-8 px-4 sm:px-6 pb-12 max-w-5xl mx-auto">
+        {/* Header Section */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
+          <div className="space-y-1">
+            <h1 className="text-3xl font-bold tracking-tight text-white">
+              Repositories
+            </h1>
+            <p className="text-zinc-400">
+              Manage the repositories connected to CodeRabbit.
             </p>
           </div>
+
           <Button
             onClick={() => {
-              window.open(`https://github.com/apps/${APP_SLUG}/installations/new`, "_blank");
+              window.open(
+                `https://github.com/apps/${APP_SLUG}/installations/new`,
+                "_blank"
+              );
             }}
-            className="w-full sm:w-auto px-4 py-2 bg-[#ff6b35] hover:bg-[#ff7f50] rounded-lg transition text-white font-medium flex items-center justify-center gap-2"
+            className="group relative inline-flex items-center justify-center gap-2 px-6 py-2.5 bg-[#ff6b35] hover:bg-[#ff8f65] text-white font-medium rounded-full transition-all duration-200 shadow-[0_0_20px_-5px_rgba(255,107,53,0.5)] hover:shadow-[0_0_25px_-5px_rgba(255,107,53,0.6)]"
           >
-            <Plus className="w-5 h-5" />
-            <span className="sm:inline">Add Repositories</span>
+            <Plus className="w-5 h-5 transition-transform group-hover:rotate-90" />
+            <span>Add Repositories</span>
           </Button>
-
         </div>
 
-        {/* Search Bar */}
-        <div className="mb-6 relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
+        {/* Search & Filter Section */}
+        <div className="mb-6 relative group">
+          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+            <Search className="h-5 w-5 text-zinc-500 group-focus-within:text-[#ff6b35] transition-colors" />
+          </div>
           <input
             type="text"
-            placeholder="Repo not found? Search here..."
+            placeholder="Search repositories..."
             value={searchQuery}
             onChange={(e) => {
               setSearchQuery(e.target.value);
               setCurrentPage(1);
             }}
-            className="w-full sm:max-w-md bg-[#161b22] border border-[#30363d] rounded-lg py-2.5 pl-10 pr-4 text-sm sm:text-base text-gray-300 placeholder-gray-500 focus:outline-none focus:border-[#ff6b35] transition"
+            className="block w-full pl-10 pr-4 py-3 bg-zinc-900/50 border border-zinc-800 rounded-xl text-zinc-100 placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-[#ff6b35]/50 focus:border-[#ff6b35] transition-all duration-200"
           />
         </div>
 
-        {/* Table Container */}
-        <div className="bg-[#161b22] border border-[#30363d] rounded-lg overflow-hidden">
-          {/* Table Header - Hidden on mobile */}
-          <div className="hidden sm:block border-b border-[#30363d] px-6 py-3 bg-[#0d1117]">
-            <div className="flex items-center gap-2">
-              <span className="text-gray-400 font-medium">Repository</span>
-              <svg
-                className="w-4 h-4 text-gray-500"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"
-                />
-              </svg>
-            </div>
-          </div>
+        {/* Stats Bar */}
+        <div className="flex items-center justify-between text-xs sm:text-sm text-zinc-500 mb-4 px-1">
+          <span>
+            Showing {paginatedRepos.length} of {filteredRepos.length}{" "}
+            repositories
+          </span>
+          {loading && <Loader2 className="w-4 h-4 animate-spin" />}
+        </div>
 
-          {/* Table Body */}
-          <div className="divide-y divide-[#30363d]">
-            {paginatedRepos.length > 0 ? (
-              paginatedRepos.map((repo) => (
-                <div
-                  key={repo.id}
-                  className="px-4 sm:px-6 py-3 sm:py-4 hover:bg-[#1c2128] transition cursor-pointer"
-                  onClick={() => window.open(repo.html_url, "_blank")}
-                >
-                  <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
-                    <span className="text-sm sm:text-base text-gray-200 font-medium break-all">
+        {/* Repository List */}
+        <div className="space-y-3">
+          {paginatedRepos.length > 0 ? (
+            paginatedRepos.map((repo) => (
+              <div
+                key={repo.id}
+                onClick={() => window.open(repo.html_url, "_blank")}
+                className="group relative flex flex-col sm:flex-row sm:items-center justify-between p-4 sm:p-5 bg-zinc-900/40 hover:bg-zinc-900 border border-zinc-800 hover:border-zinc-700 rounded-xl transition-all duration-200 cursor-pointer overflow-hidden"
+              >
+                {/* Hover Glow Effect */}
+                <div className="absolute inset-y-0 left-0 w-1 bg-[#ff6b35] opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
+
+                <div className="flex items-start sm:items-center gap-4 mb-2 sm:mb-0">
+                  <div className="p-2 bg-zinc-800 rounded-lg group-hover:bg-zinc-800/80 transition-colors">
+                    <Github className="w-6 h-6 text-zinc-100" />
+                  </div>
+
+                  <div className="flex flex-col">
+                    <span className="text-base sm:text-lg font-semibold text-zinc-100 group-hover:text-[#ff6b35] transition-colors break-all">
                       {repo.name}
                     </span>
-                    <span className="px-2 py-0.5 bg-[#21262d] border border-[#30363d] rounded text-xs text-gray-400 whitespace-nowrap">
-                      {repo.private ? "Private" : "Public"}
+                    <span className="text-sm text-zinc-500 font-mono hidden sm:block">
+                      {repo.full_name}
                     </span>
                   </div>
                 </div>
-              ))
-            ) : (
-              <div className="px-4 sm:px-6 py-8 sm:py-12 text-center text-sm sm:text-base text-gray-500">
-                {searchQuery
-                  ? "No repositories found matching your search."
-                  : "No repositories found. Please install the GitHub App first."}
+
+                <div className="flex items-center gap-4 mt-2 sm:mt-0 pl-12 sm:pl-0">
+                  <span
+                    className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium border ${
+                      repo.private
+                        ? "bg-zinc-800/50 border-zinc-700 text-zinc-400"
+                        : "bg-emerald-950/30 border-emerald-900/50 text-emerald-500"
+                    }`}
+                  >
+                    {repo.private ? (
+                      <Lock className="w-3 h-3" />
+                    ) : (
+                      <Unlock className="w-3 h-3" />
+                    )}
+                    {repo.private ? "Private" : "Public"}
+                  </span>
+
+                  <ExternalLink className="w-5 h-5 text-zinc-600 group-hover:text-zinc-300 opacity-0 group-hover:opacity-100 transition-all duration-200 transform translate-x-2 group-hover:translate-x-0 hidden sm:block" />
+                </div>
               </div>
-            )}
-          </div>
+            ))
+          ) : (
+            <div className="flex flex-col items-center justify-center py-16 px-4 bg-zinc-900/20 border border-dashed border-zinc-800 rounded-xl text-center">
+              <div className="bg-zinc-900 p-4 rounded-full mb-4">
+                <Github className="w-8 h-8 text-zinc-500" />
+              </div>
+              <h3 className="text-lg font-medium text-zinc-200 mb-1">
+                {searchQuery
+                  ? "No matching repositories"
+                  : "No repositories found"}
+              </h3>
+              <p className="text-zinc-500 max-w-sm">
+                {searchQuery
+                  ? "Try adjusting your search terms to find what you're looking for."
+                  : "It looks like you haven't installed the GitHub App yet."}
+              </p>
+            </div>
+          )}
         </div>
 
         {/* Pagination */}
         {filteredRepos.length > 0 && (
-          <div className="mt-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div className="flex items-center gap-3 sm:gap-4">
-              <span className="text-gray-400 text-xs sm:text-sm whitespace-nowrap">
-                Rows per page
-              </span>
+          <div className="mt-8 flex flex-col-reverse sm:flex-row items-center justify-between gap-6 border-t border-zinc-800 pt-6">
+            <div className="flex items-center gap-3">
+              <span className="text-sm text-zinc-500">Rows per page:</span>
               <select
                 value={rowsPerPage}
                 onChange={(e) => {
                   setRowsPerPage(Number(e.target.value));
                   setCurrentPage(1);
                 }}
-                className="bg-[#161b22] border border-[#30363d] rounded-lg px-2 sm:px-3 py-1.5 text-sm text-gray-300 focus:outline-none focus:border-[#ff6b35] cursor-pointer"
+                className="bg-zinc-900 border border-zinc-800 rounded-md px-2 py-1 text-sm text-zinc-300 focus:outline-none focus:ring-1 focus:ring-[#ff6b35] cursor-pointer"
               >
                 <option value={10}>10</option>
                 <option value={25}>25</option>
@@ -257,94 +291,49 @@ export default function Page() {
               </select>
             </div>
 
-            <div className="flex items-center justify-between sm:justify-end gap-3 sm:gap-4">
-              <span className="text-gray-400 text-xs sm:text-sm whitespace-nowrap">
-                Page {currentPage} of {totalPages}
+            <div className="flex items-center gap-1">
+              <span className="text-sm text-zinc-500 mr-4">
+                Page{" "}
+                <span className="text-zinc-200 font-medium">{currentPage}</span>{" "}
+                of {totalPages}
               </span>
-              <div className="flex gap-1">
-                {/* First Page */}
+
+              <div className="flex gap-1 bg-zinc-900/50 p-1 rounded-lg border border-zinc-800">
                 <button
                   onClick={() => setCurrentPage(1)}
                   disabled={currentPage === 1}
-                  className="p-1.5 sm:p-2 bg-[#161b22] border border-[#30363d] rounded-lg hover:bg-[#1c2128] disabled:opacity-50 disabled:cursor-not-allowed transition"
+                  className="p-2 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-md disabled:opacity-30 disabled:hover:bg-transparent transition-all"
                   aria-label="First page"
                 >
-                  <svg
-                    className="w-3 h-3 sm:w-4 sm:h-4"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M11 19l-7-7 7-7m8 14l-7-7 7-7"
-                    />
-                  </svg>
+                  <ChevronsLeft className="w-4 h-4" />
                 </button>
-                {/* Previous Page */}
                 <button
-                  onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                  onClick={() =>
+                    setCurrentPage((prev) => Math.max(1, prev - 1))
+                  }
                   disabled={currentPage === 1}
-                  className="p-1.5 sm:p-2 bg-[#161b22] border border-[#30363d] rounded-lg hover:bg-[#1c2128] disabled:opacity-50 disabled:cursor-not-allowed transition"
+                  className="p-2 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-md disabled:opacity-30 disabled:hover:bg-transparent transition-all"
                   aria-label="Previous page"
                 >
-                  <svg
-                    className="w-3 h-3 sm:w-4 sm:h-4"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M15 19l-7-7 7-7"
-                    />
-                  </svg>
+                  <ChevronLeft className="w-4 h-4" />
                 </button>
-                {/* Next Page */}
                 <button
-                  onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+                  onClick={() =>
+                    setCurrentPage((prev) => Math.min(totalPages, prev + 1))
+                  }
                   disabled={currentPage === totalPages}
-                  className="p-1.5 sm:p-2 bg-[#161b22] border border-[#30363d] rounded-lg hover:bg-[#1c2128] disabled:opacity-50 disabled:cursor-not-allowed transition"
+                  className="p-2 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-md disabled:opacity-30 disabled:hover:bg-transparent transition-all"
                   aria-label="Next page"
                 >
-                  <svg
-                    className="w-3 h-3 sm:w-4 sm:h-4"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M9 5l7 7-7 7"
-                    />
-                  </svg>
+                  <ChevronRight className="w-4 h-4" />
                 </button>
-                {/* Last Page */}
                 <button
                   onClick={() => setCurrentPage(totalPages)}
                   disabled={currentPage === totalPages}
-                  className="p-1.5 sm:p-2 bg-[#161b22] border border-[#30363d] rounded-lg hover:bg-[#1c2128] disabled:opacity-50 disabled:cursor-not-allowed transition"
+                  className="p-2 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-md disabled:opacity-30 disabled:hover:bg-transparent transition-all"
                   aria-label="Last page"
                 >
-                  <svg
-                    className="w-3 h-3 sm:w-4 sm:h-4"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M13 5l7 7-7 7M5 5l7 7-7 7"
-                    />
-                  </svg>
+                  <ChevronsRight className="w-4 h-4" />
                 </button>
               </div>
             </div>

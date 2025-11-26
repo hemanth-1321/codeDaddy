@@ -23,12 +23,13 @@ graph.add_node("aggregator_agent", aggregator_agent)
 We are intentionally NOT running agents in parallel right now.
 
 Reason:
-    Gemini ratelimits heavily when multiple parallel calls
+    Gemini free model ratelimits heavily when multiple parallel calls
        are made within a short window.
 
 Once upgraded / switched provider:
     → Replace sequential edges with parallel fan-out.
 """
+
 graph.add_edge(START, "fetch_context_agent")
 graph.add_edge("fetch_context_agent", "security_agent")
 graph.add_edge("security_agent", "code_quality_agent")

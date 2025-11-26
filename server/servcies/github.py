@@ -4,7 +4,6 @@ from server.utils.generate_app_jwt import get_installations_headers
 
 # change everything to async ,replacing requests with  httpx => httpx.AsyncClient()
 
-
 def get_installation_access_token(installation_id: int) -> str:
     """
     Create an installation access token for a specific GitHub App installation.
@@ -18,9 +17,6 @@ def get_installation_access_token(installation_id: int) -> str:
         raise HTTPException(status_code=res.status_code, detail=res.text)
 
     return res.json()["token"]
-
-
-
 
 def get_user_installations(username: str):
     """

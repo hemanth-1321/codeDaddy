@@ -30,7 +30,7 @@ def parse_file(file_path, lang_name):
     with open(file_path, "rb") as f:
         raw = f.read()
 
-    # Try UTF-8 first
+    
     try:
         source_code = raw.decode("utf-8")
     except UnicodeDecodeError:
