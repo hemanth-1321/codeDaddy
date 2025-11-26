@@ -10,7 +10,8 @@ pydantic_settings
 redis
 rq
 tree_sitter==0.20.4
-qdrant_client
+qdrant-client==1.15.1
+
 langchain-google-genai
 langchain
 langgraph
