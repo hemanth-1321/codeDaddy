@@ -2,17 +2,14 @@ version: "3.9"
 
 services:
   web:
-    image: hemanth2113/codedaddy:latest
-    command: >
-      gunicorn server.main:app 
-      -k uvicorn.workers.UvicornWorker 
-      --workers 4 
-      --bind 0.0.0.0:8000
-    env_file:
-      - /app/codedaddy/.env
-    ports:
-      - "8000:8000"
-    restart: unless-stopped
+   image: hemanth2113/codedaddy:latest
+   command: uvicorn server.main:app --host 0.0.0.0 --port 8000 --workers 1
+   env_file:
+    - /app/codedaddy/.env
+   ports:
+    - "8000:8000"
+   restart: unless-stopped
+
 
   worker:
     image: hemanth2113/codedaddy:latest
