@@ -47,10 +47,10 @@ export default function Page() {
             <span className="block text-orange-500 mt-2">Instantly.</span>
           </h1>
 
-          <p className="text-lg md:text-xl text-zinc-400 max-w-2xl leading-relaxed">
-            AI-powered reviews built for teams who move fast — but don't break
-            things. Get detailed walkthroughs and pinpointed change summaries.
-          </p>
+         <p className="text-lg md:text-xl text-zinc-400 max-w-2xl leading-relaxed">
+  AI-powered reviews built for teams who move fast — but don&apos;t break things. Get detailed walkthroughs and pinpointed change summaries.
+</p>
+
 
           <div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto pt-4">
             <Button
